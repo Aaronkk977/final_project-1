@@ -1,6 +1,7 @@
 import random
 import torch
-from game.base_player import BasePokerPlayer
+from game.players import BasePokerPlayer
+from solver import best_of_seven, hand_rank
 
 class HybridPlayer(BasePokerPlayer):
     def __init__(self):
@@ -25,8 +26,8 @@ class HybridPlayer(BasePokerPlayer):
             deck2 = [c for c in deck if c not in opp]
             draw = random.sample(deck2, 5 - len(community))
             board = community + draw
-            my_best = evaluate_hand(hole_card, board)
-            opp_best = evaluate_hand(opp, board)
+            my_best = best_of_seven(hole_card, board)
+            opp_best = best_of_seven(opp, board)
             if my_best > opp_best: wins += 1
             elif my_best == opp_best: ties += 1
             else: losses += 1
@@ -45,14 +46,15 @@ class HybridPlayer(BasePokerPlayer):
         # Preflop
         if street == "preflop":
             print(f"Preflop hole_card: {hole_card}, community: {community}")
-            hand = hole_card  # e.g. "AKo"
+            hand = hole_card
             winrate = self.preflop_table.get(hand, 0)
             if winrate > 0.7:
-                return valid_actions[2]["action"], valid_actions[2]["amount"]["min"]
+                return valid_actions[2]["action"], valid_actions[2]["amount"]["min"] # raise min
             elif winrate > 0.4:
-                return valid_actions[1]["action"], valid_actions[1]["amount"]
+                return valid_actions[1]["action"], valid_actions[1]["amount"] # call
             else:
-                return valid_actions[0]["action"], 0
+                return valid_actions[0]["action"], 0 # fold
+            
         # Post-flop (flop)
         elif street == "flop":
             win_mc, _, _ = self.estimate_winrate_mc(hole_card, community)
@@ -62,11 +64,12 @@ class HybridPlayer(BasePokerPlayer):
                 act, amt = valid_actions[1]["action"], valid_actions[1]["amount"]
             else:
                 act, amt = valid_actions[0]["action"], 0
+                
         # Turn/River
         else:  # turn or river
             # 簡單 rule-based：若有強順子以上就全下，否則保守跟注
-            best = evaluate_hand(hole_card, community)
-            if best >= HandRank.STRAIGHT:
+            best = best_of_seven(hole_card, community)
+            if best >= 5:
                 act, amt = valid_actions[2]["action"], valid_actions[2]["amount"]["max"]
             else:
                 act, amt = valid_actions[1]["action"], valid_actions[1]["amount"]

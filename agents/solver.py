@@ -15,38 +15,41 @@ rank_map = {r: i+2 for i, r in enumerate(ranks)}
 def hand_rank(cards):
     vals = sorted([rank_map[c[0]] for c in cards], reverse=True)
     suits_ = [c[1] for c in cards]
-    flush = len(set(suits_)) == 1
+    flush = len(set(suits_)) == 1 # flush 同花
+    # straight and top
     unique_vals = sorted(set(vals), reverse=True)
-    if unique_vals == [14, 5, 4, 3, 2]:
+    if unique_vals == [14, 5, 4, 3, 2]: # A-2-3-4-5
         straight, top = True, 5
     else:
         straight = len(unique_vals) == 5 and all(unique_vals[i] - 1 == unique_vals[i+1] for i in range(4))
         top = unique_vals[0] if straight else None
+        
     counts = {v: vals.count(v) for v in set(vals)}
     freq = sorted(counts.values(), reverse=True)
+
     if straight and flush:
         return (8, top)
-    if freq == [4, 1]:
+    if freq == [4, 1]: # 四條
         four = [v for v, c in counts.items() if c == 4][0]
         kicker = max(v for v in vals if v != four)
         return (7, four, kicker)
-    if freq == [3, 2]:
+    if freq == [3, 2]: # 葫蘆
         three = [v for v, c in counts.items() if c == 3][0]
         pair  = [v for v, c in counts.items() if c == 2][0]
         return (6, three, pair)
-    if flush:
+    if flush:          # 同花
         return (5, *vals)
-    if straight:
+    if straight:       # 順子
         return (4, top)
-    if freq == [3, 1, 1]:
+    if freq == [3, 1, 1]: # 三條
         three = [v for v, c in counts.items() if c == 3][0]
         kickers = sorted((v for v in vals if v != three), reverse=True)
         return (3, three, *kickers)
-    if freq == [2, 2, 1]:
+    if freq == [2, 2, 1]: # 兩對
         pairs = sorted((v for v, c in counts.items() if c == 2), reverse=True)
         kicker = [v for v in vals if counts[v] == 1][0]
         return (2, *pairs, kicker)
-    if freq == [2, 1, 1, 1]:
+    if freq == [2, 1, 1, 1]: # 高牌
         pair = [v for v, c in counts.items() if c == 2][0]
         kickers = sorted((v for v in vals if v != pair), reverse=True)
         return (1, pair, *kickers)
@@ -99,7 +102,6 @@ def estimate_equity_montecarlo(hand, iters=2000):
 # print(f"AA win_rate={win_rate:.3f}, tie_rate={tie_rate:.3f}")
 
 # 6. 完整生成 CSV（離線執行）
-ranks = ['2','3','4','5','6','7','8','9','T','J','Q','K','A']
 combos = []
 # i 對應第一張牌的 rank index，j 對應第二張
 for i in range(len(ranks)):
