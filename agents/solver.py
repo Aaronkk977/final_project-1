@@ -97,35 +97,33 @@ def estimate_equity_montecarlo(hand, iters=2000):
             ties += 1
     return wins / iters, ties / iters
 
-# 5. 示範：估算 "AA" 的勝率
-# win_rate, tie_rate = estimate_equity_montecarlo('AA', iters=2000)
-# print(f"AA win_rate={win_rate:.3f}, tie_rate={tie_rate:.3f}")
 
-# 6. 完整生成 CSV（離線執行）
-combos = []
-# i 對應第一張牌的 rank index，j 對應第二張
-for i in range(len(ranks)):
-    for j in range(len(ranks)):
-        r1, r2 = ranks[i], ranks[j]
-        if i < j:
-            # 不同花 (offsuit)
-            combos.append(r1 + r2 + 'o')
-            # 同花 (suited)
-            combos.append(r1 + r2 + 's')
-        elif i == j:
-            # 對子 (pair)
-            combos.append(r1 + r2)
-# 確保總共有 169 種
-assert len(combos) == 169
+# 5. 完整生成 CSV（離線執行）
+if __name__ == "__main__":
+    combos = []
+    # i 對應第一張牌的 rank index，j 對應第二張
+    for i in range(len(ranks)):
+        for j in range(len(ranks)):
+            r1, r2 = ranks[i], ranks[j]
+            if i < j:
+                # 不同花 (offsuit)
+                combos.append(r1 + r2 + 'o')
+                # 同花 (suited)
+                combos.append(r1 + r2 + 's')
+            elif i == j:
+                # 對子 (pair)
+                combos.append(r1 + r2)
+    # 確保總共有 169 種
+    assert len(combos) == 169
 
-results = []
-count = 0
-for hand in combos:
-    print(f"Processing {hand} ({count+1}/{len(combos)})")
-    count += 1
-    w, t = estimate_equity_montecarlo(hand, iters=2000)
-    results.append({'hand': hand, 'win_rate': w, 'tie_rate': t})
-with open('preflop_equity_2000.csv', 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=['hand','win_rate','tie_rate'])
-    writer.writeheader()
-    writer.writerows(results)
+    results = []
+    count = 0
+    for hand in combos:
+        print(f"Processing {hand} ({count+1}/{len(combos)})")
+        count += 1
+        w, t = estimate_equity_montecarlo(hand, iters=2000)
+        results.append({'hand': hand, 'win_rate': w, 'tie_rate': t})
+    with open('preflop_equity_2000.csv', 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['hand','win_rate','tie_rate'])
+        writer.writeheader()
+        writer.writerows(results)

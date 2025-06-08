@@ -1,7 +1,7 @@
 import random
 import torch
 from game.players import BasePokerPlayer
-from agents.solver import best_of_seven, hand_rank
+from agents.solver import best_of_seven, hand_rank, full_deck
 
 class HybridPlayer(BasePokerPlayer):
     def __init__(self):
@@ -18,7 +18,7 @@ class HybridPlayer(BasePokerPlayer):
     def estimate_winrate_mc(self, hole_card, community, N=2000):
         # Monte Carlo 簡易實作：隨機模擬對手手牌＋未來公共牌
         wins = ties = losses = 0
-        deck_template = Deck().full_deck()  # 假設有 Deck 類別
+        deck_template = full_deck()  # 假設有 Deck 類別
         known = hole_card + community
         for _ in range(N):
             deck = [c for c in deck_template if c not in known]
