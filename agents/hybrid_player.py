@@ -1,7 +1,7 @@
 import random
 import torch
 from game.players import BasePokerPlayer
-from solver import best_of_seven, hand_rank
+from agents.solver import best_of_seven, hand_rank
 
 class HybridPlayer(BasePokerPlayer):
     def __init__(self):
