@@ -32,14 +32,31 @@ class ActionChecker:
 
     @classmethod
     def legal_actions(self, players, player_pos, sb_amount):
-        min_raise = self.__min_raise_amount(players, sb_amount)
-        max_raise = players[player_pos].stack + players[player_pos].paid_sum()
-        if max_raise < min_raise:
-            min_raise = max_raise = -1
+        player = players[player_pos]
+        call_amount = self.agree_amount(players) # The total bet amount player needs to match to call
+        # Minimum amount for a raise that would fully re-open betting for previous actors
+        min_full_re_raise_amount = self.__min_raise_amount(players, sb_amount)
+        player_all_in_total_bet = player.stack + player.paid_sum() # Player's total bet if they go all-in
+
+        # Determine actual min and max raise amounts
+        actual_min_raise = -1
+        actual_max_raise = -1
+
+        if player_all_in_total_bet > call_amount:
+            # Player has more chips than the call amount, so a raise is potentially possible.
+            if player_all_in_total_bet >= min_full_re_raise_amount:
+                # Player can make a full re-raise or more.
+                actual_min_raise = min_full_re_raise_amount
+                actual_max_raise = player_all_in_total_bet
+            else:
+                # Player can raise all-in, but it's an "under-raise"
+                actual_min_raise = player_all_in_total_bet
+                actual_max_raise = player_all_in_total_bet
+
         return [
             {"action": "fold", "amount": 0},
-            {"action": "call", "amount": self.agree_amount(players)},
-            {"action": "raise", "amount": {"min": min_raise, "max": max_raise}},
+            {"action": "call", "amount": call_amount},
+            {"action": "raise", "amount": {"min": actual_min_raise, "max": actual_max_raise}},
         ]
 
     @classmethod

@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import groupby
-
+from itertools import combinations # New import for generating 5-card combinations
 
 class HandEvaluator:
 
@@ -28,25 +28,61 @@ class HandEvaluator:
 
     @classmethod
     def gen_hand_rank_info(self, hole, community):
-        hand = self.eval_hand(hole, community)
-        row_strength = self.__mask_hand_strength(hand)
-        strength = self.HAND_STRENGTH_MAP[row_strength]
-        hand_high = self.__mask_hand_high_rank(hand)
-        hand_low = self.__mask_hand_low_rank(hand)
-        hole_high = self.__mask_hole_high_rank(hand)
-        hole_low = self.__mask_hole_low_rank(hand)
+        hand_score = self.eval_hand(hole, community)
+
+        # Extract hand type (H)
+        actual_hand_strength_type = self.__mask_hand_strength(hand_score)
+        strength_str = self.HAND_STRENGTH_MAP[actual_hand_strength_type]
+
+        # Extract primary ranks (R1, R2) for the hand
+        hand_high_rank = self.__mask_hand_high_rank(hand_score)
+        hand_low_rank = self.__mask_hand_low_rank(hand_score)
+
+        # Get hole card ranks directly from the input "hole" cards
+        # Sort by rank, highest first. Default to 0 if no/few cards.
+        hole_card_1_rank = 0
+        hole_card_2_rank = 0
+        if len(hole) >= 1:
+            sorted_hole_cards = sorted(hole, key=lambda card: card.rank, reverse=True)
+            hole_card_1_rank = sorted_hole_cards[0].rank
+            if len(hole) >= 2:
+                hole_card_2_rank = sorted_hole_cards[1].rank
 
         return {
-            "hand": {"strength": strength, "high": hand_high, "low": hand_low},
-            "hole": {"high": hole_high, "low": hole_low},
+            "hand": {"strength": strength_str, "high": hand_high_rank, "low": hand_low_rank},
+            "hole": {"high": hole_card_1_rank, "low": hole_card_2_rank},
         }
 
     @classmethod
     def eval_hand(self, hole, community):
-        ranks = sorted([card.rank for card in hole])
-        hole_flg = ranks[1] << 4 | ranks[0]
-        hand_flg = self.__calc_hand_info_flg(hole, community) << 8
-        return hand_flg | hole_flg
+        """
+        Original logic for eval_hand
+        """
+        # ranks = sorted([card.rank for card in hole])
+        # hole_flg = ranks[1] << 4 | ranks[0]
+        # hand_flg = self.__calc_hand_info_flg(hole, community) << 8
+        # return hand_flg | hole_flg
+        
+        """
+        Updated logic for eval_hand
+        """
+        all_cards = hole + community
+        best_combo_val = None
+        for combo_tuple in combinations(all_cards, 5):
+            combo = list(combo_tuple)
+            # Use the same logic as __calc_hand_info_flg, but only for this 5-card combo, hand_strength_and_primary_ranks will be like (TWOPAIR | (rank_H << 4 | rank_L)) or HIGHCARD
+            hand_strength_and_primary_ranks = self.__calc_hand_info_flg([], combo)
+            
+            # Shift to make space for 5 kickers (4 bits each = 20 bits)
+            current_eval_score = hand_strength_and_primary_ranks << 20
+
+            ranks = sorted([card.rank for card in combo], reverse=True)
+            for i in range(5):
+                current_eval_score |= ranks[i] << (4 * (4 - i)) # Add 5 kickers
+
+            if best_combo_val is None or current_eval_score > best_combo_val:
+                best_combo_val = current_eval_score
+        return best_combo_val
 
     # Return Format
     # [Bit flg of hand][rank1(4bit)][rank2(4bit)]
@@ -79,12 +115,16 @@ class HandEvaluator:
             return self.TWOPAIR | self.__eval_twopair(cards)
         if self.__is_onepair(cards):
             return self.ONEPAIR | (self.__eval_onepair(cards))
-        return self.__eval_holecard(hole)
-
-    @classmethod
-    def __eval_holecard(self, hole):
-        ranks = sorted([card.rank for card in hole])
-        return ranks[1] << 4 | ranks[0]
+        
+        """
+        If called from eval_hand's loop (hole=[]), and it's a 5-card high-card hand, its strength is HIGHCARD (0). Kicker ranks are handled by eval_hand.
+        If called with actual hole cards (not from eval_hand's loop), this path means hole cards + community make a high card hand based on hole cards.
+        """
+        if not hole: # evaluating a 5-card combo from eval_hand
+            return self.HIGHCARD
+        else: # Original fallback for __calc_hand_info_flg when hole cards are present
+            ranks = sorted([card.rank for card in hole])
+            return self.HIGHCARD | (ranks[1] << 4 | ranks[0]) if len(ranks) == 2 else self.HIGHCARD
 
     @classmethod
     def __is_onepair(self, cards):
@@ -152,13 +192,30 @@ class HandEvaluator:
 
     @classmethod
     def __search_straight(self, cards):
-        bit_memo = reduce(lambda memo, card: memo | 1 << card.rank, cards, 0)
-        rank = -1
-        straight_check = lambda acc, i: acc & (bit_memo >> (r + i) & 1) == 1
-        for r in range(2, 15):
-            if reduce(straight_check, range(5), True):
-                rank = r
-        return rank
+        # Create a bitmask of ranks present.
+        bit_memo = 0
+        for card in cards:
+            bit_memo |= (1 << card.rank)
+
+        # Check for standard straights (T-A down to 6-2)
+        for high_rank_val in range(14, 5, -1): # high_rank_val from 14 down to 6
+            is_this_straight = True
+            for i in range(5): # check from high_rank_val to high_rank_val - 4
+                if not (bit_memo & (1 << (high_rank_val - i))):
+                    is_this_straight = False
+                    break
+            if is_this_straight:
+                return high_rank_val # Return the highest card's rank
+
+        # Check for A,2,3,4,5 straight (wheel)
+        if (bit_memo & (1<<14)) and \
+           (bit_memo & (1<<2)) and \
+           (bit_memo & (1<<3)) and \
+           (bit_memo & (1<<4)) and \
+           (bit_memo & (1<<5)):
+            return 5
+
+        return -1 # No straight
 
     @classmethod
     def __is_flash(self, cards):
@@ -246,25 +303,34 @@ class HandEvaluator:
 
     @classmethod
     def __mask_hand_strength(self, bit):
-        mask = 511 << 16
-        return (bit & mask) >> 8  # 511 = (1 << 9) -1
+        # Score format from eval_hand (with diff applied): ( (H | R) << 20 ) | KICKERS_20BIT
+        # H = Hand Type (e.g. ONEPAIR), R = Primary Ranks (8-bit)
+        # We need to extract H.
+        val_H_R = bit >> 20  # This is (H | R)
+        # H is in bits 8 and above of (H|R). R is in bits 0-7.
+        # H values are 0, 1<<8, ..., 1<<15. Mask out R part.
+        return val_H_R & (~0xFF)
 
     @classmethod
     def __mask_hand_high_rank(self, bit):
-        mask = 15 << 12
-        return (bit & mask) >> 12
+        # Extracts the higher primary rank from R in ( (H | R) << 20 )
+        val_H_R = bit >> 20
+        R_part = val_H_R & 0xFF  # R = rank1 << 4 | rank2
+        return (R_part >> 4) & 0xF # rank1
 
     @classmethod
     def __mask_hand_low_rank(self, bit):
-        mask = 15 << 8
-        return (bit & mask) >> 8
+        # Extracts the lower primary rank from R in ( (H | R) << 20 )
+        val_H_R = bit >> 20
+        R_part = val_H_R & 0xFF  # R = rank1 << 4 | rank2
+        return R_part & 0xF      # rank2
 
     @classmethod
     def __mask_hole_high_rank(self, bit):
-        mask = 15 << 4
-        return (bit & mask) >> 4
+        # This function is no longer suitable for getting hole card ranks from the new score format.
+        # Hole ranks should be obtained directly from the 'hole' cards parameter.
+        raise NotImplementedError("Hole ranks should be derived directly from hole cards, not the combined score.")
 
     @classmethod
     def __mask_hole_low_rank(self, bit):
-        mask = 15
-        return bit & mask
+        raise NotImplementedError("Hole ranks should be derived directly from hole cards, not the combined score.")
