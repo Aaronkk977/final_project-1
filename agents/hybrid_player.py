@@ -41,7 +41,7 @@ class HybridPlayer(BasePokerPlayer):
         self.mc_time_limit = 4.0  # 每次模擬的時間限制（秒）
 
         self.preflop_thresholds = {
-            "early":  {"raise_big": 0.70, "raise_small": 0.65, "call": 0.5},
+            "early":  {"raise_big": 0.70, "raise_small": 0.65, "call": 0.55},
             "middle": {"raise_big": 0.70, "raise_small": 0.65, "call": 0.45},
             "late":   {"raise_big": 0.60, "raise_small": 0.56, "call": 0.40},
         }
@@ -84,7 +84,7 @@ class HybridPlayer(BasePokerPlayer):
         opp_stack = next(s["stack"] for s in round_state["seats"] if s["state"] == "participating" and s["name"] != "myBot")
         remaining_rounds = 20 - round_state["round_count"] + 1
         if remaining_rounds % 2 == 0:
-            if my_stack - opp_stack > remaining_rounds * (sb * 3) * 0.5:
+            if my_stack - 1000 > remaining_rounds * (sb * 3) * 0.5:
                 print("[Technical Fold] must win if fold in next rounds")
                 return valid_actions[0]["action"], 0
             else:
@@ -400,6 +400,9 @@ class HybridPlayer(BasePokerPlayer):
         for c in hole: 
             if c[1] in board_ranks:
                 return self._rank_order.index(c[1])
+        if hole[0][1] == hole[1][1]:
+            return self._rank_order.index(hole[0][1])
+        return None
 
     def _is_top_pair(self, hole, board):
         """判斷是否擊中頂對 (手牌任一張 = board 最高 rank)"""
@@ -507,12 +510,12 @@ class HybridPlayer(BasePokerPlayer):
                 print(f"[decide_flop] texture={texture}, little bet")
                 pair_rank = self._pair_rank(hole_card, community)
                 print(f"[decide_flop] texture={texture}, pair_rank={pair_rank}, little bet")
-                if pair_rank >= 6:  # 高對
+                if pair_rank >= 6 or win_mc > 0.6:  # 高對
                     pct = 0.4
-                else:  # 低對
-                    pct = 0.25
-                bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
-                return valid_actions[2]["action"], bet_amt
+                    bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
+                    return valid_actions[2]["action"], bet_amt
+                else:  # 低對 
+                    return valid_actions[1]["action"], call_amt  # free check
 
             else:
                 print(f"[decide_flop] free check")
@@ -618,6 +621,7 @@ class HybridPlayer(BasePokerPlayer):
             if call_amt >= 0.6 * pot_size or call_amt > 0.40 * stack_eff:
                 print(f"[decide_turn] call_amt={call_amt}, pot_size={pot_size} heavy bet")
                 if rank in (8, 7):  # shove
+                    print(f"[decide_turn] rank={rank}, heavy bet, shove")
                     bet_amt = max_r
                     if spr > 2:
                         pct = random.uniform(1.2, 1.6)
@@ -707,7 +711,7 @@ class HybridPlayer(BasePokerPlayer):
             
             elif rank < 2 and self._has_strong_draw(hole_card, community):
                 print("[decide_turn] 強抽，半閃")
-                pct = 0.5 if texture == 'wet' else 0.4
+                pct = 0.5 if texture == 'wet' else 0.3
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
             else:
@@ -741,6 +745,7 @@ class HybridPlayer(BasePokerPlayer):
 
         block_straight  = self._has_straight_blocker(hole_card, community)
         block_flush     = self._has_flush_blocker(hole_card, community)
+        print(f"[decide_river] danger_straight={danger_straight}, danger_flush={danger_flush}, block_straight={block_straight}, block_flush={block_flush}")
 
         # my card
         best   = best_of_seven(hole_card, community)
@@ -758,6 +763,7 @@ class HybridPlayer(BasePokerPlayer):
             if call_amt >= 0.4 * pot_size:
 
                 if rank == 8: # shove
+                    print(f"[decide_river] rank={rank}, shove")
                     bet_amt = max_r
                     return valid_actions[2]["action"], bet_amt
 
@@ -869,6 +875,9 @@ class HybridPlayer(BasePokerPlayer):
                 # 無人下注可偶爾偷
                 if random.random() < 0.25 and texture in ("dry", "very_dry"):
                     bet_amt = bet_by_pct(0.20, 0.30)
+                    return valid_actions[2]["action"], bet_amt
+                elif random.random() < 0.15 and texture in ("semi"):
+                    bet_amt = bet_by_pct(0.20, 0.25)
                     return valid_actions[2]["action"], bet_amt
                 return valid_actions[1]["action"], 0            # check
 
