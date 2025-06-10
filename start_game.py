@@ -17,7 +17,7 @@ from baseline7 import setup_ai as baseline7_ai
 
 config = setup_config(max_round=20, initial_stack=1000, small_blind_amount=5)
 config.register_player(name="myBot", algorithm=hybrid_ai())
-config.register_player(name="baseline0", algorithm=baseline0_ai())
+config.register_player(name="baseline3", algorithm=baseline3_ai())
 
 ## Play in interactive mode if uncomment
 #config.register_player(name="me", algorithm=console_ai())
