@@ -699,7 +699,6 @@ class HybridPlayer(BasePokerPlayer):
                     else:
                         return valid_actions[1]["action"], call_amt
 
-
         else:  # call_amt == 0, active player
             print("[decide_turn] call_amt == 0, active player")
             if rank >= 6: # value-bet
@@ -709,7 +708,7 @@ class HybridPlayer(BasePokerPlayer):
                 bet_amt = self._clamp(bet_amt, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
             
-            elif rank < 2 and self._has_strong_draw(hole_card, community):
+            elif rank < 2 and (self._has_strong_draw(hole_card, community) or self._is_top_pair(hole_card, community)):
                 print("[decide_turn] 強抽，半閃")
                 pct = 0.5 if texture == 'wet' else 0.3
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
@@ -753,7 +752,7 @@ class HybridPlayer(BasePokerPlayer):
         
 
         # adjusted win rate
-        danger_penalty  = (0.10 if danger_straight else 0) + (0.07 if danger_flush else 0)
+        danger_penalty  = (0.10 if danger_straight else 0) + (0.08 if danger_flush else 0)
         blocker_bonus = 0.05 * (block_flush or block_straight)
         adj_win = win_r + tie_r + blocker_bonus - danger_penalty
         print(f"[decide_river] rank={rank}, adj_win={adj_win:.2f}, danger_penalty={danger_penalty:.2f}, blocker_bonus={blocker_bonus:.2f}")
@@ -801,7 +800,8 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[2]["action"], bet_amt
                 
                 elif rank in (0, 1, 2):
-                    if adj_win < pot_odds + margin and self._can_fold(round_state):
+                    print(f"[decide_river] rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")
+                    if adj_win < pot_odds - margin and self._can_fold(round_state):
                         print(f"win rate too low, fold")
                         return valid_actions[0]["action"], 0
                     else:
