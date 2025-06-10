@@ -26,3 +26,15 @@ class Deck:
         從傳入的列表 deck 前面抽 n 張，回傳 (抽出的牌列表, 剩餘的牌堆)。
         """
         return deck[:n], deck[n:]
+    
+    @classmethod
+    def remove(cls, deck, cards):
+        """
+        從傳入的列表 deck 中移除 cards 中的牌，回傳新的牌堆。
+        cards 可以是一張牌的字串，也可以是一個字串列表。
+        """
+        # 統一把單張轉成列表
+        if isinstance(cards, str):
+            cards = [cards]
+        # 過濾
+        return [c for c in deck if c not in cards]
