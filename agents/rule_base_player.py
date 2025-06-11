@@ -494,13 +494,20 @@ class HybridPlayer(BasePokerPlayer):
 
     def _borad_danger(self, hole, board):
         danger = 0
-        if self._board_four_to_straight(board): danger += 0.07
-        if self._board_four_flush(board): danger += 0.08
-        if self._board_pairs(board) >= 2: danger += 0.05
-        if self._board_trip(board): danger += 0.06
+        if self._board_four_to_straight(board): 
+            danger += 0.07
+        if self._board_four_flush(board): 
+            danger += 0.08
+        if self._board_pairs(board) >= 2: 
+            print(f"[board_danger] board_pairs={self._board_pairs(board)}")
+            danger += 0.05
+        if self._board_trip(board): 
+            danger += 0.06
         print(f"[board_danger] danger={danger:.2f}, board={board}")
-        if self._has_flush_blocker(hole, board): danger -= 0.04
-        if self._has_straight_blocker(hole, board): danger -= 0.03
+        if self._has_flush_blocker(hole, board): 
+            danger -= 0.04
+        if self._has_straight_blocker(hole, board): 
+            danger -= 0.03
 
         danger = max(0, danger)
 
