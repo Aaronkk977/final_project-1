@@ -206,7 +206,7 @@ class HybridPlayer(BasePokerPlayer):
         if call_amt >= 5 * bb or call_amt > 0.25 * stack_eff:
             call_thresh = max(thr["raise_small"], pot_odds + margin)
         elif call_amt >= 3 * bb:
-            call_thresh = max(thr["call"] + 0.08, pot_odds + margin)
+            call_thresh = max(thr["call"] + 0.08    , pot_odds + margin)
         else:
             call_thresh = max(thr["call"], pot_odds + margin)
 
