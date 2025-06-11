@@ -130,6 +130,11 @@ class HybridPlayer(BasePokerPlayer):
         call_amt = valid_actions[1]["amount"]
         bb       = round_state["small_blind_amount"] * 2
         min_r, max_r = valid_actions[2]["amount"].values()
+        stack_eff = min(p["stack"] for p in seats if p["state"] == "participating")
+                
+        pot_odds  = call_amt / (pot + call_amt) if call_amt else 0
+        margin    = 0.02
+
         #───────────────────────────────────
 
         # =========================================================
@@ -137,7 +142,7 @@ class HybridPlayer(BasePokerPlayer):
         # =========================================================
         if winrate > thr["raise_big"]:
             # ==== 先判斷有效籌碼深度（stack_eff） ====
-            stack_eff = min(p["stack"] for p in seats if p["state"] == "participating")
+            
             bb_units  = stack_eff // bb                      # 以 BB 為單位的深度
 
             # ==== 依深度設定「下注選項」及對應權重 ====
@@ -162,6 +167,9 @@ class HybridPlayer(BasePokerPlayer):
             else:  # "mid"
                 factor  = random.uniform(3.5, 4.5)             # 3.5–4.5 BB
                 bet_amt = max(min_r, min(int(bb * factor), max_r))
+
+            if bet_amt > 0.45 * stack_eff or bet_amt >= 5 * bb:
+                bet_amt = max_r # 強制 all-in   
 
             print(f"[Preflop] Monster hand → {choice} 3-bet, bet_amt={bet_amt}")
             return valid_actions[2]["action"], bet_amt
@@ -194,10 +202,8 @@ class HybridPlayer(BasePokerPlayer):
         # =========================================================
         # 2) 依對手加注大小微調 call 閾值，並根據閾值決定 Call / Fold
         # =========================================================
-        stack_eff = min(p["stack"] for p in seats if p["state"]=="participating")
-        pot_odds  = call_amt / (pot + call_amt) if call_amt else 0
-        margin    = 0.02
         print(f"[Preflop] pot_odds={pot_odds:.2f}, stack_eff={stack_eff}, call_amt={call_amt}")
+        
         if call_amt >= 6 * bb or call_amt > 0.3 * stack_eff:
             call_thresh = max(thr["raise_small"], pot_odds + margin)
         elif call_amt >= 3 * bb:
@@ -628,6 +634,8 @@ class HybridPlayer(BasePokerPlayer):
                     else:
                         return valid_actions[1]["action"], call_amt  # call
                 else: # rank 0
+                    if self._has_strong_draw(hole_card, community):
+                        return valid_actions[2]["action"], max_r  # 強抽，下注最大
                     if self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
