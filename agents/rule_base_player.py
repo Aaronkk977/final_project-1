@@ -644,7 +644,7 @@ class HybridPlayer(BasePokerPlayer):
 
         if call_amt > 0:
             print(f"[decide_turn] passive player")
-            if call_amt >= 0.6 * pot_size or call_amt > 0.40 * stack_eff:
+            if call_amt >= 0.6 * pot_size or call_amt > 0.40 * stack_eff: # heavy bet
                 print(f"[decide_turn] call_amt={call_amt}, pot_size={pot_size} heavy bet")
                 if rank in (8, 7):  # shove
                     print(f"[decide_turn] rank={rank}, heavy bet, shove")
@@ -683,12 +683,13 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[2]["action"], bet_amt
 
                 elif rank in (1, 2):
+                    print(f"[decide_turn] rank={rank}, texture={texture}, win_mc={win_mc:.2f}, pot_odds={pot_odds:.2f}")
                     if win_mc < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
                     elif texture in ("wet", "semi"):
                         r = random.random()
-                        if r < 0.5:
+                        if r < 0.75:
                             bet_amt = int(pot_size * 2.5)
                             bet_amt = self._clamp(bet_amt, min_r, max_r)
                             return valid_actions[2]["action"], bet_amt
@@ -1033,8 +1034,6 @@ class HybridPlayer(BasePokerPlayer):
 
         elif street == "river":
             return self.decide_river(valid_actions, hole_card, round_state)
-  
-        return act, amt
 
     # 其餘 callback 留空或做 logging
     def receive_game_start_message(self, game_info): 
