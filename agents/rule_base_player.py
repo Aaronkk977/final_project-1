@@ -147,15 +147,16 @@ class HybridPlayer(BasePokerPlayer):
             # ==== 先判斷有效籌碼深度（stack_eff） ====
             
             bb_units  = stack_eff // bb        # 以 BB 為單位的深度
+            print(f"[Preflop] bb_units={bb_units}, stack_eff={stack_eff}, winrate={winrate:.2f}")
 
             # ==== 依深度設定「下注選項」及對應權重 ====
             # format: (下注類型, 權重)
-            if bb_units <= 20:         # 淺籌碼 → 以 shove 為主
+            if bb_units <= 18:         # 淺籌碼 → 以 shove 為主
                 options = [("shove", 0.7), ("big", 0.3)]
             elif bb_units <= 40:       # 中等籌碼 → 三種尺寸混合
-                options = [("shove", 0.4), ("big", 0.4), ("mid", 0.2)]
+                options = [("shove", 0.3), ("big", 0.5), ("mid", 0.2)]
             else:                      # 深籌碼 → 以 3-bet 為主、偶爾 all-in
-                options = [("shove", 0.2), ("big", 0.5), ("mid", 0.3)]
+                options = [("shove", 0.1), ("big", 0.6), ("mid", 0.3)]
 
             # ==== 根據權重抽籤 ====
             choice = random.choices( [opt[0] for opt in options], 
@@ -196,7 +197,7 @@ class HybridPlayer(BasePokerPlayer):
     
             else:    
                 print("[Preflop] card is not good")
-                if winrate < 0.35 and self._can_fold(round_state):
+                if winrate < 0.40 and self._can_fold(round_state):
                     print("[Preflop] winrate < 0.35")
                     return valid_actions[0]["action"], 0
                 else:
@@ -502,7 +503,7 @@ class HybridPlayer(BasePokerPlayer):
         if self._board_four_flush(board): danger += 0.08
         if self._board_pairs(board) >= 2: danger += 0.05
         if self._board_trip(board): danger += 0.06
-
+        print(f"[board_danger] danger={danger:.2f}, board={board}")
         if self._has_flush_blocker(hole, board): danger -= 0.04
         if self._has_straight_blocker(hole, board): danger -= 0.03
 
@@ -798,7 +799,7 @@ class HybridPlayer(BasePokerPlayer):
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
             
-            elif rank < 2 and self._has_strong_draw(hole_card, community):
+            elif rank < 2 and self._has_strong_draw(hole_card, community) and spr > 4:
                 print("[decide_turn] 強抽")
                 pct = 0.6 if texture == 'wet' else 0.45
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
@@ -830,7 +831,7 @@ class HybridPlayer(BasePokerPlayer):
         rank   = best[0]        # 0: high-card … 8: straight-flush
         win_r, tie_r = self._calc_winrate_river(hole_card, community)
         texture = self._board_texture(community)
-        print(f"[decide_river] win_mc={win_r:.2f}, rank={rank}, tie_r={tie_r:.2f}")
+        print(f"[River] win_mc={win_r:.2f}, rank={rank}, tie_r={tie_r:.2f}")
 
         # 3) 讀池＆計算 Pot Odds
         min_r   = valid_actions[2]["amount"]["min"]
@@ -841,20 +842,20 @@ class HybridPlayer(BasePokerPlayer):
         margin   = 0.03  # 安全邊際
         stack_eff = min(s["stack"] for s in round_state["seats"] if s["state"] == "participating")
         spr = stack_eff / pot_size if pot_size > 0 else 0
-        print(f"[decide_river] pot_size={pot_size}, call_amt={call_amt}, pot_odds={pot_odds:.2f}")
+        print(f"[River] pot_size={pot_size}, call_amt={call_amt}, pot_odds={pot_odds:.2f}")
 
         # —— River bluff-catch 規則 ——
         # ---------- 危險牌面 + Blocker Bonus ----------
         danger = self._borad_danger(hole_card, community)
         adj_win = win_r + tie_r + danger
-        print(f"[decide_river] adj_win={adj_win:.2f}, danger_penalty={danger:.2f}")
+        print(f"[River] adj_win={adj_win:.2f}, danger={danger:.2f}")
 
         if call_amt > 0:
-            print(f"[decide_river] passive player")
+            print(f"[River] passive player")
             if call_amt >= 0.4 * pot_size:
-                print(f"[decide_river] call_amt={call_amt}, pot_size={pot_size} heavy bet")
+                print(f"[River] call_amt={call_amt}, pot_size={pot_size} heavy bet")
                 if rank == 8: # shove
-                    print(f"[decide_river] rank={rank}, shove")
+                    print(f"[River] rank={rank}, shove")
                     bet_amt = max_r
                     return valid_actions[2]["action"], bet_amt
 
@@ -893,7 +894,7 @@ class HybridPlayer(BasePokerPlayer):
                     return valid_actions[2]["action"], bet_amt
                 
                 elif rank in (0, 1, 2):
-                    print(f"[decide_river] rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")
+                    print(f"[River] rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")
                     if (adj_win < 0.9 or adj_win < pot_odds - margin) and self._can_fold(round_state):
                         print(f"win rate too low, fold")
                         self.raise_fold += 1
@@ -902,11 +903,11 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
             
             else:  # light bet
-                print(f"[decide_river] call_amt={call_amt}, pot_size={pot_size} light bet")
+                print(f"[River] call_amt={call_amt}, pot_size={pot_size} light bet")
 
                 # ── 1. Monster / 強價值 ───────────────────────────────
                 if   rank == 8:                 # Straight-flush / Quads
-                    print("[decide_river-LB] Rank 8 → pot-raise")
+                    print("[River-LB] Rank 8 → pot-raise")
                     bet_amt = self._clamp(int(pot_size * 1.2), min_r, max_r)
                     return valid_actions[2]["action"], bet_amt
 
@@ -928,7 +929,7 @@ class HybridPlayer(BasePokerPlayer):
                 elif rank in (3, 4):            # Two-pair / Over-pair
                     # 計算 bluff-catch EV
                     if adj_win < pot_odds - margin and self._can_fold(round_state):
-                        print("[decide_river-LB] Over-pair / Two-pair but EV<0 → fold")
+                        print("[River-LB] Over-pair / Two-pair but EV<0 → fold")
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
                     else:
@@ -943,7 +944,7 @@ class HybridPlayer(BasePokerPlayer):
 
                 # ── 3. 弱牌 / 單對以下 ──────────────────────────────
                 elif rank in (1, 2):                           # rank 0-2
-                    print(f"[decide_river-LB] rank={rank}, adj={adj_win:.2f}, pot_odds={pot_odds:.2f}")
+                    print(f"[River-LB] rank={rank}, adj={adj_win:.2f}, pot_odds={pot_odds:.2f}")
                     if adj_win >= pot_odds + margin and adj_win >= 0.7:
                         # +EV 接注 → bluff-catch
                         return valid_actions[1]["action"], call_amt
@@ -954,7 +955,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt
                 
                 else:  # rank == 0
-                    print(f"[decide_river-LB] rank={rank}, adj={adj_win:.2f}, pot={pot_odds:.2f}")
+                    print(f"[River-LB] rank={rank}, adj={adj_win:.2f}, pot={pot_odds:.2f}")
                     if self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -963,7 +964,7 @@ class HybridPlayer(BasePokerPlayer):
 
 
         else:
-            print(f"[decide_river] active: rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
+            print(f"[River] active: rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
 
             # ---------- Rank Tier 重新分層 ----------
             # 8  = STRAIGHT_FLUSH / QUADS
@@ -1008,7 +1009,7 @@ class HybridPlayer(BasePokerPlayer):
 
             # === E. 中檔（Two-Pair / Over-Pair，rank 3-4）====
             elif rank in (3, 4):
-                if danger_penalty > 0:                     # 濕板 → 偏小 block
+                if danger > 0:                     # 濕板 → 偏小 block
                     bet_amt = bet_by_pct(0.25, 0.35)
                 else:
                     bet_amt = bet_by_pct(0.35, 0.55)
@@ -1017,14 +1018,29 @@ class HybridPlayer(BasePokerPlayer):
             # === F. 頂對 / 中對（rank 2）或更差 ===
             #     - 若對手下注，進入 bluff-catch 判斷
             #     - 否則可嘗試 20-30% pot 輕偷或 simply check
-            print(f"[decide_river] rank={rank}, F.")
-            if random.random() < 0.7 and texture in ("dry", "very_dry"):
-                bet_amt = bet_by_pct(0.20, 0.30)
-                return valid_actions[2]["action"], bet_amt
-            elif random.random() < 0.7 and texture in ("semi"):
-                bet_amt = bet_by_pct(0.20, 0.25)
-                return valid_actions[2]["action"], bet_amt
-            return valid_actions[1]["action"], 0            # check
+            print(f"[River] rank={rank}, F.")
+            
+
+            if danger > 0:
+                roll = random.random()
+                has_blocker = self._has_flush_blocker(hole_card, community) \
+                            or self._has_straight_blocker(hole_card, community)
+
+                if texture in ("dry", "very_dry") and roll < 0.70:
+                    bet_amt = bet_by_pct(0.25, 0.35)          # 更能製造 fold equity
+                    return valid_actions[2]["action"], bet_amt
+
+                elif texture == "semi" and roll < 0.50:       # semi 降低頻率
+                    bet_amt = bet_by_pct(0.20, 0.25)
+                    return valid_actions[2]["action"], bet_amt
+
+                elif texture == "wet" and has_blocker and roll < 0.30:
+                    bet_amt = bet_by_pct(0.20, 0.22)
+                    return valid_actions[2]["action"], bet_amt
+
+            # 預設：安全 check
+            print(f"[River] check for safe")
+            return valid_actions[1]["action"], 0
 
 
     def declare_action(self, valid_actions, hole_card, round_state):
