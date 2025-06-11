@@ -32,6 +32,7 @@ def normalize_hand(hole_cards):
     return key
 
 class HybridPlayer(BasePokerPlayer):
+
     def __init__(self):
         self.preflop_table = self.load_preflop_csv("agents/preflop_equity_10000.csv")
         self._rank_order = "23456789TJQKA"
@@ -60,21 +61,27 @@ class HybridPlayer(BasePokerPlayer):
         """Clamp a value between min_value and max_value."""
         return max(min(value, max_value), min_value)
 
-    def get_position(self, seat_index, button, num_players, small_blind_pos):
-        # heads-up 特例
-        if num_players == 2:
-            # 小盲先出手 → early；大盲後出手 → late
-            return "early" if seat_index == small_blind_pos else "late"
-
-        # 多人桌（>2）時，維持原本三區分法
-        rel = (seat_index - button - 1) % num_players
-        third = num_players // 3
-        if rel <= third - 1:
-            return "early"
-        elif rel <= 2 * third - 1:
-            return "middle"
+    def _get_position(self, round_state):
+        """
+        根據 small_blind_pos 與自己的座位，判定在 Preflop 是 'early' (Big Blind) 還是 'late' (Button/Small Blind)，
+        並回傳 (position, thresholds)。
+        """
+        # 找到自己的座位 index
+        seats      = round_state["seats"]            # list of seat dicts
+        sb_pos     = round_state["small_blind_pos"]  # small blind 的座位 index
+        # 總座位數（Heads-Up = 2）
+        n_players  = len(seats)
+        # 建 map: uuid -> seat_idx
+        uuid_to_idx = {p["uuid"]: idx for idx, p in enumerate(seats)}
+        my_idx     = uuid_to_idx[self.uuid]
+        
+        # Heads-Up: small blind 是 button (late)，big blind 在 early
+        if my_idx == sb_pos:
+            position = "late"
         else:
-            return "late"
+            position = "early"
+
+        return position  
 
     def _technical_fold(self, valid_actions, round_state):
         """
@@ -114,12 +121,7 @@ class HybridPlayer(BasePokerPlayer):
         if self._technical_fold(valid_actions, round_state):
             return valid_actions[0]["action"], 0  # technical fold
 
-        seats   = round_state["seats"]
-        num_p   = len(seats)
-        button  = round_state["dealer_btn"]
-        sb_pos  = round_state["small_blind_pos"]
-        seat_idx= next(i for i,s in enumerate(seats) if s["name"]=="myBot")
-        pos     = self.get_position(seat_idx, button, num_p, sb_pos)
+        pos     = self._get_position(round_state)
         thr     = self.preflop_thresholds[pos]
         print(f"[Preflop] Position: {pos}, Thresholds: {thr}")
 
@@ -130,6 +132,7 @@ class HybridPlayer(BasePokerPlayer):
         call_amt = valid_actions[1]["amount"]
         bb       = round_state["small_blind_amount"] * 2
         min_r, max_r = valid_actions[2]["amount"].values()
+        seats    = round_state["seats"]
         stack_eff = min(p["stack"] for p in seats if p["state"] == "participating")
                 
         pot_odds  = call_amt / (pot + call_amt) if call_amt else 0
