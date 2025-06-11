@@ -44,7 +44,7 @@ class HybridPlayer(BasePokerPlayer):
         self.preflop_thresholds = {
             "early":  {"raise_big": 0.68, "raise_small": 0.62, "call": 0.50},
             "middle": {"raise_big": 0.70, "raise_small": 0.65, "call": 0.45},
-            "late":   {"raise_big": 0.60, "raise_small": 0.58, "call": 0.40},
+            "late":   {"raise_big": 0.60, "raise_small": 0.58, "call": 0.43},
         }
 
     def load_preflop_csv(self, path):
@@ -446,9 +446,9 @@ class HybridPlayer(BasePokerPlayer):
         if 12 in vals: vals.append(-1)
         return any(vals[i+3]-vals[i]==3 for i in range(len(vals)-3))
 
-    def _board_three_flush(self, board):
+    def _board_four_flush(self, board):
         suits = [c[0] for c in board]
-        return any(suits.count(s) >= 3 for s in set(suits))
+        return any(suits.count(s) >= 4 for s in set(suits))
 
     def _has_flush_blocker(self, hole, board):
         """
@@ -528,11 +528,10 @@ class HybridPlayer(BasePokerPlayer):
                 return valid_actions[2]["action"], bet_amt
 
             elif rank == 1 and texture != "wet":
-                print(f"[decide_flop] texture={texture}, little bet")
                 pair_rank = self._pair_rank(hole_card, community)
                 print(f"[decide_flop] texture={texture}, pair_rank={pair_rank}, little bet")
-                if pair_rank >= 6 and win_mc > 0.6:  # 高對
-                    pct = 0.4
+                if self._is_top_pair(hole_card, community) and win_mc > 0.7:  # 高對
+                    pct = 0.6
                     bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
                     return valid_actions[2]["action"], bet_amt
                 else:  # 低對 
@@ -815,7 +814,7 @@ class HybridPlayer(BasePokerPlayer):
         # —— River bluff-catch 規則 ——
         # ---------- 危險牌面 + Blocker Bonus ----------
         danger_straight = self._board_four_to_straight(community)
-        danger_flush    = self._board_three_flush(community)
+        danger_flush    = self._board_four_flush(community)
         texture = self._board_texture(community)
 
         block_straight  = self._has_straight_blocker(hole_card, community)
@@ -949,7 +948,7 @@ class HybridPlayer(BasePokerPlayer):
 
 
         else:
-            print(f"[decide_river] normal bet or non. rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
+            print(f"[decide_river] active: rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
 
             # ---------- Rank Tier 重新分層 ----------
             # 8  = STRAIGHT_FLUSH / QUADS
@@ -1004,10 +1003,10 @@ class HybridPlayer(BasePokerPlayer):
             #     - 若對手下注，進入 bluff-catch 判斷
             #     - 否則可嘗試 20-30% pot 輕偷或 simply check
             print(f"[decide_river] rank={rank}, F.")
-            if random.random() < 0.5 and texture in ("dry", "very_dry"):
+            if random.random() < 0.7 and texture in ("dry", "very_dry"):
                 bet_amt = bet_by_pct(0.20, 0.30)
                 return valid_actions[2]["action"], bet_amt
-            elif random.random() < 0.5 and texture in ("semi"):
+            elif random.random() < 0.7 and texture in ("semi"):
                 bet_amt = bet_by_pct(0.20, 0.25)
                 return valid_actions[2]["action"], bet_amt
             return valid_actions[1]["action"], 0            # check
