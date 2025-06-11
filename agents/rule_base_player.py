@@ -549,62 +549,35 @@ class HybridPlayer(BasePokerPlayer):
                     bet_amt = max_r
                     return valid_actions[2]["action"], bet_amt
 
-                elif rank == 7:
-                    bet_amt = max_r if spr <= 1.5 else pot_size + call_amt
+                if rank == 7:
+                    bet_amt = max_r if spr <= 1.5 else int(pot_size * random.uniform(1.1,1.4))
                     return valid_actions[2]["action"], bet_amt
 
-                elif rank == 6:
-                    if texture in ("wet", "semi"):
-                        bet_amt = int(0.8 * pot_size)
-                    else:  # dry / very_dry
-                        bet_amt = int(1.2 * pot_size)
+                if rank == 6:
+                    pct = 1.1 if texture in ("wet","semi") else 0.8
+                    bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
+                    return 'raise', bet_amt
 
-                    bet_amt = self._clamp(bet_amt, min_r, max_r)
-
-                elif rank == 5:
+                if rank == 5:
                     if texture in ("wet", "semi"):
-                        return valid_actions[1]["action"], call_amt  # call
+                        bet_amt = int(pot_size * random.uniform(0.5, 0.7))
+                        return valid_actions[2]["action"], bet_amt
                     else:
                         bet_amt = int(pot_size * random.uniform(0.6, 0.8))
                         return valid_actions[2]["action"], bet_amt
 
-                elif rank in (2, 3, 4):
-                    if self._is_top_pair(hole_card, community):
-                        print(f"[decide_flop] top pair, texture={texture}")
-                        if texture in ("wet", "semi"):
-                            bet_amt = int(pot_size * random.uniform(2.0, 4.0))
-                            bet_amt = self._clamp(bet_amt, min_r, max_r)
-                            return valid_actions[2]["action"], bet_amt
-                        else:
-                            return valid_actions[1]["action"], call_amt  # call
-                    
-                    if (win_mc < 0.6 or win_mc < pot_odds + margin) and self._can_fold(round_state):
-                        self.raise_fold += 1
-                        return valid_actions[0]["action"], 0 # fold
-                    elif texture in ("wet", "semi"):
-                        pair_rank = self._pair_rank(hole_card, community)
-                        board_high = max(self._rank_order.index(c[1]) for c in community)
-                        print(f"[decide_flop] pair_rank={pair_rank}, board_high={board_high}")
-                        if pair_rank <= 6 or board_high >= 10:
-                            print(f"[decide_flop] fold")
-                            self.raise_fold += 1
-                            return valid_actions[0]["action"], 0
-                        else:
-                            bet_amt = int(pot_size * random.uniform(0.10, 0.15))
-                            bet_amt = self._clamp(bet_amt, min_r, max_r)
-                            return valid_actions[2]["action"], bet_amt
+                if rank in (3,4) or (rank == 2 and self._is_top_pair(hole_card, community)):
+                    if win_mc < pot_odds + margin and self._can_fold(round_state):
+                        return 'fold', 0
+                    # Thin value：0.45–0.55 pot
+                    bet_amt = self._clamp(int(pot_size * random.uniform(0.45,0.55)), min_r, max_r)
+                    return 'raise', bet_amt
 
-                    else:
-                        bet_amt = int(pot_size * random.uniform(0.20, 0.25))
-                        bet_amt = self._clamp(bet_amt, min_r, max_r)
-                        return valid_actions[2]["action"], bet_amt
-                
-                elif rank in (0, 1):
-                    if (win_mc < 0.8 or win_mc < pot_odds + margin) and self._can_fold(round_state):
-                        self.raise_fold += 1
-                        return valid_actions[0]["action"], 0
-                    else:
-                        return valid_actions[1]["action"], call_amt  # call
+                # 5) 其他牌
+                if win_mc >= pot_odds + margin:
+                    return 'call', call_amt
+                else:
+                    return 'fold', 0
             
             else:  # light bet
                 print(f"[decide_flop] call_amt={call_amt}, light bet")
