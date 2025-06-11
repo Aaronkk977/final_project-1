@@ -146,7 +146,7 @@ class HybridPlayer(BasePokerPlayer):
         if winrate > thr["raise_big"]:
             # ==== 先判斷有效籌碼深度（stack_eff） ====
             
-            bb_units  = stack_eff // bb                      # 以 BB 為單位的深度
+            bb_units  = stack_eff // bb        # 以 BB 為單位的深度
 
             # ==== 依深度設定「下注選項」及對應權重 ====
             # format: (下注類型, 權重)
