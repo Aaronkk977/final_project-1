@@ -1,7 +1,7 @@
 import random
 import time
 import itertools
-import traceback
+from collections import Counter
 import torch
 from game.players import BasePokerPlayer
 from agents.solver import best_of_seven, hand_rank
@@ -258,7 +258,6 @@ class HybridPlayer(BasePokerPlayer):
 
         return win_rate, tie_rate, loss_rate
            
-
     def _calc_winrate_river(self, my_hole, board):
         """
         回傳 (win_rate, tie_rate)
@@ -454,18 +453,14 @@ class HybridPlayer(BasePokerPlayer):
         return any(suits.count(s) >= 4 for s in set(suits))
 
     def _board_pairs(self, board):
-        """
-        回傳 board 上的對子數量
-        """
-        ranks = [c[1] for c in board]
-        return sum(ranks.count(r) // 2 for r in set(ranks))
+        cnt = Counter(c[1] for c in board)
+        # 恰好一組 pair
+        return sum(1 for v in cnt.values() if v == 2)
 
     def _board_trip(self, board):
-        """
-        回傳 board 上的三條數量
-        """
-        ranks = [c[1] for c in board]
-        return any(ranks.count(r) // 3 for r in set(ranks))
+        cnt = Counter(c[1] for c in board)
+        # 恰好一組 pair
+        return sum(1 for v in cnt.values() if v == 3)
 
     def _has_flush_blocker(self, hole, board):
         """
