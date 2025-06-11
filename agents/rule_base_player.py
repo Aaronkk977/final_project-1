@@ -167,10 +167,10 @@ class HybridPlayer(BasePokerPlayer):
                 bet_amt = max_r                                # all-in
             elif choice == "big":
                 factor  = random.uniform(5.0, 6.0)             # 5–6 BB
-                bet_amt = max(min_r, min(int(bb * factor), max_r))
+                bet_amt = self._clamp(int(bb * factor), min_r, max_r)
             else:  # "mid"
                 factor  = random.uniform(3.5, 4.5)             # 3.5–4.5 BB
-                bet_amt = max(min_r, min(int(bb * factor), max_r))
+                bet_amt = self._clamp(int(bb * factor), min_r, max_r)
 
             if bet_amt > 0.45 * stack_eff or bet_amt >= 5 * bb:
                 bet_amt = max_r # 強制 all-in   
@@ -498,7 +498,7 @@ class HybridPlayer(BasePokerPlayer):
             danger += 0.07
         if self._board_four_flush(board): 
             danger += 0.08
-        if self._board_pairs(board) >= 2: 
+        if self._board_pairs(board) > 0: 
             print(f"[board_danger] board_pairs={self._board_pairs(board)}")
             danger += 0.05
         if self._board_trip(board): 
@@ -562,7 +562,7 @@ class HybridPlayer(BasePokerPlayer):
 
             elif rank == 1 and texture != "wet":
                 pair_rank = self._pair_rank(hole_card, community)
-                print(f"[decide_flop] texture={texture}, pair_rank={pair_rank}, little bet")
+                print(f"[Flop] texture={texture}, pair_rank={pair_rank}, little bet")
                 if self._is_top_pair(hole_card, community) and win_mc > 0.7:  # 高對
                     pct = 0.6
                     bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
@@ -672,11 +672,11 @@ class HybridPlayer(BasePokerPlayer):
         print(f"[Turn] danger={danger:.2f}, adj_win={adj_win:.2f}")
 
         if call_amt > 0:
-            print(f"[decide_turn] passive player")
-            if call_amt >= 0.6 * pot_size or call_amt > 0.40 * stack_eff: # heavy bet
-                print(f"[decide_turn] call_amt={call_amt}, pot_size={pot_size} heavy bet")
+            print(f"[Turn] passive player")
+            if call_amt >= 0.7 * pot_size or call_amt > 0.40 * stack_eff: # heavy bet
+                print(f"[Turn] call_amt={call_amt}, pot_size={pot_size} heavy bet")
                 if rank in (8, 7):  # shove
-                    print(f"[decide_turn] rank={rank}, heavy bet, shove")
+                    print(f"[Turn] rank={rank}, heavy bet, shove")
                     bet_amt = max_r
                     if spr > 2:
                         pct = random.uniform(1.2, 1.6)
@@ -716,7 +716,7 @@ class HybridPlayer(BasePokerPlayer):
                     if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
-                    elif texture in ("wet", "semi"):
+                    elif texture in ("wet", "semi") or self._has_strong_draw(hole_card, community):
                         r = random.random()
                         if r < 0.75:
                             bet_amt = int(pot_size * 2.5)
@@ -787,7 +787,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt
 
         else:  # call_amt == 0, active player
-            print("[decide_turn] call_amt == 0, active player")
+            print("[decide_turn] active player, pot_size={pot_size}, rank={rank}")
             if rank >= 6: # value-bet
                 print("[decide_turn] good hand, value-bet")
                 pct = 0.75 if texture == "wet" else 0.85
