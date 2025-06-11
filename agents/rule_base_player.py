@@ -43,7 +43,7 @@ class HybridPlayer(BasePokerPlayer):
         self.raise_fold = 0
 
         self.preflop_thresholds = {
-            "early":  {"raise_big": 0.68, "raise_small": 0.62, "call": 0.50},
+            "early":  {"raise_big": 0.65, "raise_small": 0.62, "call": 0.50},
             "middle": {"raise_big": 0.70, "raise_small": 0.65, "call": 0.45},
             "late":   {"raise_big": 0.60, "raise_small": 0.58, "call": 0.43},
         }
@@ -437,11 +437,15 @@ class HybridPlayer(BasePokerPlayer):
         return outs >= 8
 
     def _board_four_to_straight(self, board):
-        """Flop/Turn/River 是否有四張連號"""
+        """Flop/Turn/River 是否有四張連號（含輪子 A-2-3-4)"""
         vals = sorted(set(self._rank_order.index(c[1]) for c in board))
-        # 考慮 Wheel
-        if 12 in vals: vals.append(-1)
-        return any(vals[i+3]-vals[i]==3 for i in range(len(vals)-3))
+        # 把 A=12 再映射成 -1，方便偵測 A-2-3-4
+        if 12 in vals:
+            vals.append(-1)
+            vals.sort()                       # ← 重新排序，才不會打亂遞增序列
+        # 任意連續 4 張（不重複）且跨度 = 3
+        return any(vals[i+3] - vals[i] == 3 for i in range(len(vals) - 3))
+
 
     def _board_four_flush(self, board):
         suits = [c[0] for c in board]
@@ -889,7 +893,7 @@ class HybridPlayer(BasePokerPlayer):
                 
                 elif rank in (0, 1, 2):
                     print(f"[River] rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")
-                    if (adj_win < 0.9 or adj_win < pot_odds - margin) and self._can_fold(round_state):
+                    if (adj_win < 0.85 or adj_win < pot_odds - margin) and self._can_fold(round_state):
                         print(f"win rate too low, fold")
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
