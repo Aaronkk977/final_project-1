@@ -297,7 +297,6 @@ class HybridPlayer(BasePokerPlayer):
         • straight_draw: open-ended 或 gutshot 皆算 True
         • outs: 剩餘可把牌做成抽牌的牌數 (不重複計數，最大 9)
         """
-        print(f"[detect_draws] hole={hole}, board={board}")
         cards      = hole + board
         board_len  = len(board)
         remaining  = 52 - len(cards)
@@ -553,7 +552,7 @@ class HybridPlayer(BasePokerPlayer):
                 return valid_actions[2]["action"], bet
 
             # 4) 強抽但尚未成手 (rank < 2)             －－半閃
-            elif rank < 2 and self._has_strong_draw(hole_card, community):
+            elif rank < 2 and self._has_strong_draw(hole_card, community) and win_mc >= pot_odds + margin:
                 pct      = 0.70 if texture == 'wet' else 0.60
                 bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
@@ -771,7 +770,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt
                 else:  # rank == 0
                     print(f"[decide_turn] AK? {any(c[1] in ('A', 'K') for c in hole_card)}")
-                    if self._has_strong_draw(hole_card, community) and any(c[1] in ('A', 'K') for c in hole_card): # has A or K
+                    if spr <= 4 and self._has_strong_draw(hole_card, community) and any(c[1] in ('A', 'K') for c in hole_card): # has A or K
                         print(f"[decide_turn] 強抽")
                         pct = random.uniform(0.5, 0.6)
                         bet_amt = int(pot_size * pct)
