@@ -156,7 +156,7 @@ class HybridPlayer(BasePokerPlayer):
             elif bb_units <= 40:       # 中等籌碼 → 三種尺寸混合
                 options = [("shove", 0.3), ("big", 0.5), ("mid", 0.2)]
             else:                      # 深籌碼 → 以 3-bet 為主、偶爾 all-in
-                options = [("shove", 0.1), ("big", 0.6), ("mid", 0.3)]
+                options = [("big", 0.65), ("mid", 0.35)]
 
             # ==== 根據權重抽籤 ====
             choice = random.choices( [opt[0] for opt in options], 
