@@ -145,38 +145,33 @@ class HybridPlayer(BasePokerPlayer):
         # =========================================================
         if winrate > thr["raise_big"]:
             # ==== 先判斷有效籌碼深度（stack_eff） ====
-            
-            bb_units  = stack_eff // bb        # 以 BB 為單位的深度
-            print(f"[Preflop] bb_units={bb_units}, stack_eff={stack_eff}, winrate={winrate:.2f}")
+            eff_bb = stack_eff / bb
+            last_open_amt = max(call_amt, bb)
 
-            # ==== 依深度設定「下注選項」及對應權重 ====
-            # format: (下注類型, 權重)
-            if bb_units <= 18:         # 淺籌碼 → 以 shove 為主
-                options = [("shove", 0.7), ("big", 0.3)]
-            elif bb_units <= 40:       # 中等籌碼 → 三種尺寸混合
-                options = [("shove", 0.3), ("big", 0.5), ("mid", 0.2)]
-            else:                      # 深籌碼 → 以 3-bet 為主、偶爾 all-in
-                options = [("big", 0.65), ("mid", 0.35)]
+            # 定義不同 SPR 區間的尺寸策略
+            if eff_bb <= 12:
+                # 浅籌碼：50% 機率全壓，50% 機率 2.5× open
+                if random.random() < 0.5:
+                    desired = max_r
+                else:
+                    desired = int(last_open_amt * 2.5)
+            elif eff_bb <= 20:
+                # 中等籌碼：70% 用 3× open，30% all-in
+                if random.random() < 0.7:
+                    desired = int(last_open_amt * 3)
+                else:
+                    desired = max_r
+            elif eff_bb <= 40:
+                # 深籌碼：完全 3× open
+                desired = int(last_open_amt * 3)
+            else:
+                # 非常深：2.5–3.5× open 隨機
+                factor  = random.uniform(2.5, 3.5)
+                desired = int(last_open_amt * factor)
 
-            # ==== 根據權重抽籤 ====
-            choice = random.choices( [opt[0] for opt in options], 
-                    weights=[opt[1] for opt in options], k=1)[0]
-
-            # ==== 計算 bet_amt ====
-            if choice == "shove":
-                bet_amt = max_r                                # all-in
-            elif choice == "big":
-                factor  = random.uniform(5.0, 6.0)             # 5–6 BB
-                bet_amt = self._clamp(int(bb * factor), min_r, max_r)
-            else:  # "mid"
-                factor  = random.uniform(3.5, 4.5)             # 3.5–4.5 BB
-                bet_amt = self._clamp(int(bb * factor), min_r, max_r)
-
-            if bet_amt > 0.45 * stack_eff or bet_amt >= 5 * bb:
-                bet_amt = max_r # 強制 all-in   
-
+            # clamp 合法範圍
             print(f"[Preflop] Monster hand → {choice} 3-bet, bet_amt={bet_amt}")
-            return valid_actions[2]["action"], bet_amt
+            return self._clamp(desired, min_r, max_r)
         
         # =========================================================
         # 1) 遭遇 limp ⇒ Isolation Raise
@@ -499,11 +494,9 @@ class HybridPlayer(BasePokerPlayer):
         if self._board_four_flush(board): 
             danger += 0.08
         if self._board_pairs(board) > 0: 
-            print(f"[board_danger] board_pairs={self._board_pairs(board)}")
             danger += 0.05
         if self._board_trip(board): 
             danger += 0.06
-        print(f"[board_danger] danger={danger:.2f}, board={board}")
         if self._has_flush_blocker(hole, board): 
             danger -= 0.04
         if self._has_straight_blocker(hole, board): 
@@ -836,8 +829,7 @@ class HybridPlayer(BasePokerPlayer):
         print(f"[River] win_mc={win_r:.2f}, rank={rank}, tie_r={tie_r:.2f}")
 
         # 3) 讀池＆計算 Pot Odds
-        min_r   = valid_actions[2]["amount"]["min"]
-        max_r   = valid_actions[2]["amount"]["max"]
+        min_r, max_r   = valid_actions[2]["amount"]["min"], valid_actions[2]["amount"]["max"]
         pot_size = round_state["pot"]["main"]["amount"]
         call_amt = valid_actions[1]["amount"]
         pot_odds = call_amt / (pot_size + call_amt) if call_amt > 0 else 0
