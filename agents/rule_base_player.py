@@ -170,7 +170,7 @@ class HybridPlayer(BasePokerPlayer):
                 desired = int(last_open_amt * factor)
 
             # clamp 合法範圍
-            print(f"[Preflop] Monster hand → {choice} 3-bet, bet_amt={bet_amt}")
+            print(f"[Preflop] Monster hand : eff_bb={eff_bb} 3-bet, bet_amt={bet_amt}")
             return self._clamp(desired, min_r, max_r)
         
         # =========================================================
@@ -203,10 +203,10 @@ class HybridPlayer(BasePokerPlayer):
         # =========================================================
         print(f"[Preflop] pot_odds={pot_odds:.2f}, stack_eff={stack_eff}, call_amt={call_amt}")
         
-        if call_amt >= 6 * bb or call_amt > 0.3 * stack_eff:
+        if call_amt >= 5 * bb or call_amt > 0.25 * stack_eff:
             call_thresh = max(thr["raise_small"], pot_odds + margin)
         elif call_amt >= 3 * bb:
-            call_thresh = max(thr["call"] + 0.10, pot_odds + margin)
+            call_thresh = max(thr["call"] + 0.08, pot_odds + margin)
         else:
             call_thresh = max(thr["call"], pot_odds + margin)
 
