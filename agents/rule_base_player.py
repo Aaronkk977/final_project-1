@@ -759,14 +759,14 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[2]["action"], bet_amt
 
                 elif rank in (1, 2):
-                    print(f"[decide_turn] texture={texture}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
-                    if (adj_win < pot_odds + margin or texture == "wet") and self._can_fold(round_state):
+                    print(f"[Turn] texture={texture}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
+                    if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
                     else:
                         return valid_actions[1]["action"], call_amt
                 else:  # rank == 0
-                    print(f"[decide_turn] AK? {any(c[1] in ('A', 'K') for c in hole_card)}")
+                    print(f"[Turn] AK? {any(c[1] in ('A', 'K') for c in hole_card)}")
                     if spr <= 4 and self._has_strong_draw(hole_card, community) and any(c[1] in ('A', 'K') for c in hole_card): # has A or K
                         print(f"[decide_turn] 強抽")
                         pct = random.uniform(0.5, 0.6)
