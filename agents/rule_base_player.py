@@ -525,7 +525,7 @@ class HybridPlayer(BasePokerPlayer):
                 print(f"[decide_flop] texture={texture}, little bet")
                 pair_rank = self._pair_rank(hole_card, community)
                 print(f"[decide_flop] texture={texture}, pair_rank={pair_rank}, little bet")
-                if pair_rank >= 6 or win_mc > 0.6:  # 高對
+                if pair_rank >= 6 and win_mc > 0.6:  # 高對
                     pct = 0.4
                     bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
                     return valid_actions[2]["action"], bet_amt
