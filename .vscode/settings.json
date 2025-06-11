@@ -1,0 +1,5 @@
+{
+    "remote.SSH.path": "/usr/bin/ssh",
+    "remote.SSH.configFile": "~/.ssh/config",
+
+}

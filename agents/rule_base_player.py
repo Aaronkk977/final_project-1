@@ -4,8 +4,8 @@ import itertools
 import traceback
 import torch
 from game.players import BasePokerPlayer
-from solver import best_of_seven, hand_rank
-from deck import Deck
+from agents.solver import best_of_seven, hand_rank
+from agents.deck import Deck
 
 def normalize_hand(hole_cards):
     # 定義牌面大小順序，index 越大代表牌越大
@@ -33,7 +33,7 @@ def normalize_hand(hole_cards):
 
 class HybridPlayer(BasePokerPlayer):
     def __init__(self):
-        self.preflop_table = self.load_preflop_csv("agents/preflop_equity_2000.csv")
+        self.preflop_table = self.load_preflop_csv("agents/preflop_equity_10000.csv")
         self._rank_order = "23456789TJQKA"
         self._suit = "CDHS"
         self._deck = Deck().full_deck()  
@@ -899,7 +899,7 @@ class HybridPlayer(BasePokerPlayer):
                 
                 elif rank in (0, 1, 2):
                     print(f"[decide_river] rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")
-                    if (adj_win < 0.7 or adj_win < pot_odds - margin) and self._can_fold(round_state):
+                    if (adj_win < 0.75 or adj_win < pot_odds - margin) and self._can_fold(round_state):
                         print(f"win rate too low, fold")
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
