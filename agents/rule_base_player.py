@@ -69,8 +69,7 @@ class HybridPlayer(BasePokerPlayer):
         # 找到自己的座位 index
         seats      = round_state["seats"]            # list of seat dicts
         sb_pos     = round_state["small_blind_pos"]  # small blind 的座位 index
-        # 總座位數（Heads-Up = 2）
-        n_players  = len(seats)
+
         # 建 map: uuid -> seat_idx
         uuid_to_idx = {p["uuid"]: idx for idx, p in enumerate(seats)}
         my_idx     = uuid_to_idx[self.uuid]
@@ -83,13 +82,12 @@ class HybridPlayer(BasePokerPlayer):
 
         return position  
 
-    def _technical_fold(self, valid_actions, round_state):
+    def _technical_fold(self, round_state):
         """
         must win if fold in next rounds
         """
         sb = round_state["small_blind_amount"]
-        my_stack = next(s["stack"] for s in round_state["seats"] if s["name"] == "myBot")
-        opp_stack = next(s["stack"] for s in round_state["seats"] if s["state"] == "participating" and s["name"] != "myBot")
+        my_stack = next(s["stack"] for s in round_state["seats"] if s["uuid"] == self.uuid)
         remaining_rounds = 20 - round_state["round_count"] + 1
         if remaining_rounds % 2 == 0:
             if my_stack - 1000 > remaining_rounds * (sb * 3) * 0.5:
@@ -109,7 +107,7 @@ class HybridPlayer(BasePokerPlayer):
         must win if fold in next rounds
         """
         sb = round_state["small_blind_amount"]
-        my_stack = next(s["stack"] for s in round_state["seats"] if s["name"] == "myBot")
+        my_stack = next(s["stack"] for s in round_state["seats"] if s["uuid"] == self.uuid)
         current = round_state["round_count"]
         
         if current == 20 and my_stack < sb * 2 + 1000:
@@ -118,8 +116,7 @@ class HybridPlayer(BasePokerPlayer):
         return True
 
     def decide_preflop(self, valid_actions, hole, round_state):
-        if self._technical_fold(valid_actions, round_state):
-            return valid_actions[0]["action"], 0  # technical fold
+        if self._technical_fold(round_state): return valid_actions[0]["action"], 0  # technical fold
 
         pos     = self._get_position(round_state)
         thr     = self.preflop_thresholds[pos]
