@@ -189,7 +189,7 @@ class HybridPlayer(BasePokerPlayer):
                 # Isolation Size：2.5–3.5 BB 隨機
                 factor   = random.uniform(2.5, 4.5)
                 desired  = int(bb * factor)
-                bet_amt  = max(min_r, min(desired, max_r))
+                bet_amt  = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
     
             print("[Preflop] card is not good")
@@ -375,8 +375,8 @@ class HybridPlayer(BasePokerPlayer):
         ranks = sorted("23456789TJQKA".index(c[1]) for c in community)
         # 同花判斷：兩張同花 = semi、三張同花 = wet
         suit_cnt = max(suits.count(s) for s in set(suits))
-        flush_wet = suit_cnt == 3
-        flush_semi= suit_cnt == 2
+        flush_wet = suit_cnt >= 3
+        flush_semi= suit_cnt >= 2
         # 連張判斷：連張差<=1 → 濕；<=2 → 半濕
         is_conn   = ranks[-1] - ranks[0]
         straight_wet  = is_conn <= 2
@@ -567,6 +567,9 @@ class HybridPlayer(BasePokerPlayer):
 
             # 4) 強抽但尚未成手 (rank < 2)             －－半閃
             elif rank < 2 and self._has_strong_draw(hole_card, community) and win_mc >= pot_odds + margin:
+                if spr > 10 and win_mc < 0.55:
+                    # SPR 太高、勝率不夠高 → 不下注
+                    return valid_actions[1]["action"], 0
                 pct      = 0.70 if texture == 'wet' else 0.60
                 bet_amt  = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
@@ -594,6 +597,7 @@ class HybridPlayer(BasePokerPlayer):
 
                 if rank == 7:
                     bet_amt = max_r if spr <= 1.5 else int(pot_size * random.uniform(1.1,1.4))
+                    bet_amt = self._clamp(bet_amt, min_r, max_r)
                     return valid_actions[2]["action"], bet_amt
 
                 if rank == 6:
@@ -602,12 +606,12 @@ class HybridPlayer(BasePokerPlayer):
                     return 'raise', bet_amt
 
                 if rank == 5:
-                    if texture in ("wet", "semi"):
-                        bet_amt = int(pot_size * random.uniform(0.5, 0.7))
-                        return valid_actions[2]["action"], bet_amt
-                    else:
-                        bet_amt = int(pot_size * random.uniform(0.6, 0.8))
-                        return valid_actions[2]["action"], bet_amt
+                    if texture in ("wet", "semi"): bet_amt = int(pot_size * random.uniform(0.5, 0.7))
+
+                    else: bet_amt = int(pot_size * random.uniform(0.6, 0.8))
+
+                    bet_amt = self._clamp(bet_amt, min_r, max_r)
+                    return valid_actions[2]["action"], bet_amt
 
                 if rank in (3,4) or (rank == 2 and self._is_top_pair(hole_card, community)):
                     if win_mc < pot_odds + margin and self._can_fold(round_state):
@@ -873,6 +877,7 @@ class HybridPlayer(BasePokerPlayer):
 
                 elif rank == 7:
                     bet_amt = max_r if spr <= 1.5 else int(pot_size * random.uniform(1.0, 1.5))
+                    bet_amt = self._clamp(bet_amt, min_r, max_r)
                     return valid_actions[2]["action"], bet_amt
 
                 elif rank == 6:
@@ -890,6 +895,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
                     else:
                         bet_amt = int(pot_size * random.uniform(0.6, 0.8))
+                        bet_amt = self._clamp(bet_amt, min_r, max_r)
                         return valid_actions[2]["action"], bet_amt
 
                 elif rank in (3, 4):
@@ -995,36 +1001,43 @@ class HybridPlayer(BasePokerPlayer):
             #   中檔       : rank 3-4
             #   弱牌       : rank ≤2
             # ------------------------------------------------
-            def bet_by_pct(pct_lo, pct_hi):
-                pct = random.uniform(pct_lo, pct_hi)
-                bet = int(pot_size * pct)
-                return max(min_r, min(bet, max_r))
+
             # === A. 超強牌（rank 8）→ 大注 / Over-bet ===
             if rank == 8:
-                bet_amt = bet_by_pct(0.9, 2.2 if texture in ("semi", "wet") else 1.4)
+                factor = random.uniform(0.9, 2.2 if texture in ("semi", "wet") else 1.4)
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
             # === B. Very Strong（rank 7）====
             elif rank == 7:
-                bet_amt = bet_by_pct(0.75, 1.2 if texture in ("semi", "wet") else 1.0)
+                factor = random.uniform(0.75, 1.2 if texture in ("semi", "wet") else 1.0)
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
             # === C. Strong Value（rank 6）====
             elif rank == 6:
-                bet_amt = bet_by_pct(0.55, 0.85)
+                factor = random.uniform(0.55, 0.85)
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
             # === D. 中強（Trips，rank 5）====
             elif rank == 5:
-                bet_amt = bet_by_pct(0.40, 0.60)
+                factor = random.uniform(0.40, 0.60)
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
             # === E. 中檔（Two-Pair / Over-Pair，rank 3-4）====
             elif rank in (3, 4):
                 if danger > 0:                     # 濕板 → 偏小 block
-                    bet_amt = bet_by_pct(0.25, 0.35)
+                    factor = random.uniform(0.25, 0.35)
                 else:
-                    bet_amt = bet_by_pct(0.35, 0.55)
+                    factor = random.uniform(0.35, 0.55)  # 乾板 → 偏大 thin value
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
             # === F. 頂對 / 中對（rank 2）或更差 ===
@@ -1035,24 +1048,29 @@ class HybridPlayer(BasePokerPlayer):
 
             if danger > 0:
                 roll = random.random()
-                has_blocker = self._has_flush_blocker(hole_card, community) \
-                            or self._has_straight_blocker(hole_card, community)
-
+                has_blocker = self._has_flush_blocker(hole_card, community) or self._has_straight_blocker(hole_card, community)
+                print(f"[River] danger={danger:.2f}, has_blocker={has_blocker}, roll={roll:.2f}")
                 if texture in ("dry", "very_dry") and roll < 0.70:
-                    bet_amt = bet_by_pct(0.25, 0.35)          # 更能製造 fold equity
-                    return valid_actions[2]["action"], bet_amt
+                    factor = random.uniform(0.25, 0.35)          # 更能製造 fold equity
 
                 elif texture == "semi" and has_blocker and roll < 0.50:       # semi 降低頻率
-                    bet_amt = bet_by_pct(0.20, 0.25)
-                    return valid_actions[2]["action"], bet_amt
+                    factor = random.uniform(0.20, 0.25)
 
                 elif texture == "wet" and has_blocker and roll < 0.30:
-                    bet_amt = bet_by_pct(0.20, 0.22)
-                    return valid_actions[2]["action"], bet_amt
+                    factor = random.uniform(0.20, 0.22)
+
+                else:    # 沒命中偷注條件 → check
+                    print(f"[River] skip bluff: no factor assigned")
+                    return valid_actions[1]["action"], call_amt
+
+                desired = int(pot_size * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
+                print(f"[River] DEBUG bet_amt={bet_amt}")
+                return valid_actions[2]["action"], bet_amt
 
             # 預設：安全 check
             print(f"[River] check for safe")
-            return valid_actions[1]["action"], 0
+            return valid_actions[1]["action"], call_amt
 
 
     def declare_action(self, valid_actions, hole_card, round_state):

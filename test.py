@@ -95,11 +95,11 @@ def main():
     results = []
     
     # Test against random player first for sanity check
-    results.append(evaluate_against_opponent("random_player", random_ai, num_games=10))
+    results.append(evaluate_against_opponent("random_player", random_ai, num_games=5))
     
     # Then test against all available baselines
     for name, ai_func in baselines:
-        results.append(evaluate_against_opponent(name, ai_func, num_games=10))
+        results.append(evaluate_against_opponent(name, ai_func, num_games=5))
     
     # Print summary
     print("\nEvaluation Summary:")
