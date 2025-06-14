@@ -120,9 +120,8 @@ class HybridPlayer(BasePokerPlayer):
 
         pos     = self._get_position(round_state)
         thr     = self.preflop_thresholds[pos]
-        print(f"[Preflop] Position: {pos}, Thresholds: {thr}")
-
         winrate = self.preflop_table.get(normalize_hand(hole), 0)
+        print(f"[Preflop] Pos: {pos}, Win: {winrate}, Thr: {thr}")
 
         # ───────────── 共用變量 ─────────────
         pot      = round_state["pot"]["main"]["amount"]
@@ -134,12 +133,9 @@ class HybridPlayer(BasePokerPlayer):
                 
         pot_odds  = call_amt / (pot + call_amt) if call_amt else 0
         margin    = 0.02
-
         #───────────────────────────────────
 
-        # =========================================================
         # 0) 強牌：3-bet／shove
-        # =========================================================
         if winrate > thr["raise_big"]:
             # ==== 先判斷有效籌碼深度（stack_eff） ====
             eff_bb = stack_eff / bb
@@ -169,15 +165,24 @@ class HybridPlayer(BasePokerPlayer):
             # clamp 合法範圍
             print(f"[Preflop] Monster hand : eff_bb={eff_bb} 3-bet, bet_amt={bet_amt}")
             return self._clamp(desired, min_r, max_r)
+
+        # -------- 0.5) Mixed 3-bet Bluff --------
+        if pos == "late" and 3*bb <= call_amt <= 4*bb:
+            if thr["call"] <= winrate < thr["raise_small"]:
+                if random.random() < 0.18:                         # 18 % 時間進行 bluff 3-bet
+                    factor   = random.uniform(2.7, 3.3)
+                    desired  = int(call_amt * factor)
+                    bet_amt  = self._clamp(desired, min_r, max_r)
+                    print("[Preflop] 3-bet bluff", bet_amt)
+                    return valid_actions[2]["action"], bet_amt
+
         
-        # =========================================================
         # 1) 遭遇 limp ⇒ Isolation Raise
-        # =========================================================
         # 條件：對手只有 limp (call_amt == bb) ；自己還能 raise；手牌達到某 winrate
         print(f"[Preflop] call_amt={call_amt}, winrate={winrate:.2f}, position={pos}")
         if call_amt == bb and pos == "late":
             # 以 Seat 位置設定 Iso-Raise 閾值（比普通 raise_small 再寬一點）
-            print(f"[Preflop] limp call_amt={call_amt}, winrate={winrate:.2f}, position={pos}")
+            print(f"[Preflop] limp call_amt")
 
             iso_thresh = thr["raise_small"]     # 例：late 0.50 → 0.45
             if winrate >= iso_thresh:
@@ -195,14 +200,27 @@ class HybridPlayer(BasePokerPlayer):
                 else:
                     return valid_actions[1]["action"], call_amt  # check
 
-        # =========================================================
         # 2) 依對手加注大小微調 call 閾值，並根據閾值決定 Call / Fold
-        # =========================================================
-        print(f"[Preflop] pot_odds={pot_odds:.2f}, stack_eff={stack_eff}, call_amt={call_amt}")
+        print(f"[Preflop] pot_odds={pot_odds:.2f}, stack_eff={stack_eff}")
         
         if call_amt >= 5 * bb or call_amt > 0.25 * stack_eff:
+            if pot_odds > 0.45 and winrate >= 0.45:
+                print("[Preflop] Hero-call vs Shove")
+                return valid_actions[1]["action"], call_amt  # call
             call_thresh = max(thr["raise_small"], pot_odds + margin)
-        elif call_amt >= 3 * bb:
+            if winrate >= call_thresh or not self._can_fold(round_state):
+                print(f"[Preflop] Call (winrate={winrate:.2f}, call_thresh={call_thresh:.2f})")
+                factor = random.uniform(2.7, 3.3)
+                desired = int(call_amt * factor)
+                bet_amt = self._clamp(desired, min_r, max_r)
+                return valid_actions[2]["action"], bet_amt
+            else:
+                print(f"[Preflop] Fold (winrate={winrate:.2f}, call_thresh={call_thresh:.2f})")
+                self.raise_fold += 1
+                return valid_actions[0]["action"], 0
+            
+        
+        if call_amt >= 3 * bb:
             call_thresh = max(thr["call"] + 0.08    , pot_odds + margin)
         else:
             call_thresh = max(thr["call"], pot_odds + margin)
@@ -795,9 +813,9 @@ class HybridPlayer(BasePokerPlayer):
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
             
-            elif rank < 2 and self._has_strong_draw(hole_card, community) and spr > 4:
+            elif rank >= 1 and self._has_strong_draw(hole_card, community) and spr > 4:
                 print("[decide_turn] 強抽")
-                pct = 0.6 if texture == 'wet' else 0.45
+                pct = 0.6 if texture == 'wet' else 0.3
                 bet_amt = self._clamp(int(pot_size * pct), min_r, max_r)
                 return valid_actions[2]["action"], bet_amt
 
