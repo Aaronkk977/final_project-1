@@ -43,9 +43,9 @@ class HybridPlayer(BasePokerPlayer):
         self.raise_fold = 0
 
         self.preflop_thresholds = {
-            "early":  {"raise_big": 0.65, "raise_small": 0.62, "call": 0.50},
+            "early":  {"raise_big": 0.65, "raise_small": 0.62, "call": 0.48},
             "middle": {"raise_big": 0.70, "raise_small": 0.65, "call": 0.45},
-            "late":   {"raise_big": 0.60, "raise_small": 0.58, "call": 0.43},
+            "late":   {"raise_big": 0.60, "raise_small": 0.58, "call": 0.42},
         }
 
     def load_preflop_csv(self, path):
@@ -163,10 +163,10 @@ class HybridPlayer(BasePokerPlayer):
                 desired = int(last_open_amt * factor)
 
             # clamp 合法範圍
-            print(f"[Preflop] Monster hand : eff_bb={eff_bb} 3-bet, bet_amt={bet_amt}")
-            return self._clamp(desired, min_r, max_r)
+            print(f"[Preflop] Monster hand : eff_bb={eff_bb} 3-bet, bet_amt={desired}")
+            return valid_actions[2]["action"], self._clamp(desired, min_r, max_r)
 
-        # -------- 0.5) Mixed 3-bet Bluff --------
+        # -------- 0.5) Mixed 3-bet Bluff --------  
         if pos == "late" and 3*bb <= call_amt <= 4*bb:
             if thr["call"] <= winrate < thr["raise_small"]:
                 if random.random() < 0.18:                         # 18 % 時間進行 bluff 3-bet
@@ -193,8 +193,8 @@ class HybridPlayer(BasePokerPlayer):
                 return valid_actions[2]["action"], bet_amt
     
             print("[Preflop] card is not good")
-            if winrate < 0.42 and self._can_fold(round_state):
-                print("[Preflop] winrate < 0.43")
+            if winrate < 0.40 and self._can_fold(round_state):
+                print("[Preflop] winrate < 0.40")
                 return valid_actions[0]["action"], 0
             else:
                 return valid_actions[1]["action"], call_amt  # check
@@ -863,7 +863,7 @@ class HybridPlayer(BasePokerPlayer):
         # —— River bluff-catch 規則 ——
         # ---------- 危險牌面 + Blocker Bonus ----------
         danger = self._borad_danger(hole_card, community)
-        adj_win = win_r + tie_r + danger
+        adj_win = win_r + danger
         print(f"[River] adj_win={adj_win:.2f}, danger={danger:.2f}")
 
         if call_amt > 0:
