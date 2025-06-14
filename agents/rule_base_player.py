@@ -121,7 +121,7 @@ class HybridPlayer(BasePokerPlayer):
         pos     = self._get_position(round_state)
         thr     = self.preflop_thresholds[pos]
         winrate = self.preflop_table.get(normalize_hand(hole), 0)
-        print(f"[Preflop] Pos: {pos}, Win: {winrate}, Thr: {thr}")
+        print(f"[Preflop] Pos: {pos}, Win: {winrate:.2f}, Thr: {thr}")
 
         # ───────────── 共用變量 ─────────────
         pot      = round_state["pot"]["main"]["amount"]
@@ -179,7 +179,7 @@ class HybridPlayer(BasePokerPlayer):
         
         # 1) 遭遇 limp ⇒ Isolation Raise
         # 條件：對手只有 limp (call_amt == bb) ；自己還能 raise；手牌達到某 winrate
-        print(f"[Preflop] call_amt={call_amt}, winrate={winrate:.2f}, position={pos}")
+        print(f"[Preflop] call_amt={call_amt}")
         if call_amt == bb and pos == "late":
             # 以 Seat 位置設定 Iso-Raise 閾值（比普通 raise_small 再寬一點）
             print(f"[Preflop] limp call_amt")
@@ -192,13 +192,12 @@ class HybridPlayer(BasePokerPlayer):
                 bet_amt  = max(min_r, min(desired, max_r))
                 return valid_actions[2]["action"], bet_amt
     
-            else:    
-                print("[Preflop] card is not good")
-                if winrate < 0.40 and self._can_fold(round_state):
-                    print("[Preflop] winrate < 0.35")
-                    return valid_actions[0]["action"], 0
-                else:
-                    return valid_actions[1]["action"], call_amt  # check
+            print("[Preflop] card is not good")
+            if winrate < 0.42 and self._can_fold(round_state):
+                print("[Preflop] winrate < 0.43")
+                return valid_actions[0]["action"], 0
+            else:
+                return valid_actions[1]["action"], call_amt  # check
 
         # 2) 依對手加注大小微調 call 閾值，並根據閾值決定 Call / Fold
         print(f"[Preflop] pot_odds={pot_odds:.2f}, stack_eff={stack_eff}")
@@ -680,7 +679,7 @@ class HybridPlayer(BasePokerPlayer):
 
         # 3) Danger analysis
         danger = self._borad_danger(hole_card, community)
-        adj_win = win_mc + tie_mc - danger
+        adj_win = win_mc - danger
         print(f"[Turn] danger={danger:.2f}, adj_win={adj_win:.2f}")
 
         if call_amt > 0:
@@ -712,7 +711,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
                 
                 elif rank in (3, 4):
-                    print(f"[decide_turn] rank={rank}, texture={texture} pot_odds={pot_odds:.2f}, adj_win={adj_win:.2f}")
+                    print(f"[decide_turn] rank={rank:.2f}, texture={texture:.2f} pot_odds={pot_odds:.2f}, adj_win={adj_win:.2f}")
                     if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -724,7 +723,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[2]["action"], bet_amt
 
                 elif rank in (1, 2):
-                    print(f"[decide_turn] rank={rank}, texture={texture}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
+                    print(f"[decide_turn] rank={rank:.2f}, texture={texture:.2f}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
                     if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -799,7 +798,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt
 
         else:  # call_amt == 0, active player
-            print("[decide_turn] active player, pot_size={pot_size}, rank={rank}")
+            print(f"[decide_turn] active player, pot_size={pot_size}, rank={rank}")
             if rank >= 6: # value-bet
                 print("[decide_turn] good hand, value-bet")
                 pct = 0.75 if texture == "wet" else 0.85
@@ -977,7 +976,7 @@ class HybridPlayer(BasePokerPlayer):
 
 
         else:
-            print(f"[River] active: rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
+            print(f"[River] Active: rank={rank}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}, texture={texture}")          
 
             # ---------- Rank Tier 重新分層 ----------
             # 8  = STRAIGHT_FLUSH / QUADS
@@ -1043,7 +1042,7 @@ class HybridPlayer(BasePokerPlayer):
                     bet_amt = bet_by_pct(0.25, 0.35)          # 更能製造 fold equity
                     return valid_actions[2]["action"], bet_amt
 
-                elif texture == "semi" and roll < 0.50:       # semi 降低頻率
+                elif texture == "semi" and has_blocker and roll < 0.50:       # semi 降低頻率
                     bet_amt = bet_by_pct(0.20, 0.25)
                     return valid_actions[2]["action"], bet_amt
 
