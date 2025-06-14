@@ -99,7 +99,7 @@ def main():
     
     # Then test against all available baselines
     for name, ai_func in baselines:
-        results.append(evaluate_against_opponent(name, ai_func, num_games=10))
+        results.append(evaluate_against_opponent(name, ai_func, num_games=8))
     
     # Print summary
     print("\nEvaluation Summary:")
