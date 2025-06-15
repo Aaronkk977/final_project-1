@@ -73,7 +73,7 @@ def main():
 
     # 最後列印總表（同原本程式）
     print("\nEvaluation Summary:")
-    print(f"{'Opp':<12}{'Win%':>8}{'Draw%':>8}{'MyAvg':>10}{'OppAvg':>10}")
+    print(f"{'Opp':<12}{'Win%':>11}{'Draw%':>8}{'MyAvg':>10}{'OppAvg':>10}")
     for r in results:
         print(f"{r['opponent']:<13}{r['win_rate']:>8.2f}%{r['draw_rate']:>8.2f}%"
               f"{r['avg_stack']:>10.2f}{r['opponent_avg_stack']:>10.2f}")
