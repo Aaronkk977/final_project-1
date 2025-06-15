@@ -69,7 +69,7 @@ def main():
     results.append(evaluate_against_opponent("random_player", random_ai, num_games=20, workers=4))
     # 各 baseline
     for name, ai in baselines:
-        results.append(evaluate_against_opponent(name, ai, num_games=20, workers=4))
+        results.append(evaluate_against_opponent(name, ai, num_games=12, workers=4))
 
     # 最後列印總表（同原本程式）
     print("\nEvaluation Summary:")

@@ -254,14 +254,14 @@ class HybridPlayer(BasePokerPlayer):
         
         if call_amt >= 5 * bb or call_amt > 0.25 * stack_eff:
 
-            if pot_odds > 0.45 and winrate >= 0.45:
+            if winrate >= pot_odds + margin:
                 print("[Preflop] Hero-call vs Shove")
                 return valid_actions[1]["action"], call_amt  # call
 
-            call_thresh = max(thr["raise_small"], pot_odds + margin)
+            call_thresh = max(thr["raise_big"], pot_odds + margin)
             if winrate >= call_thresh or not self._can_fold(round_state):
                 print(f"[Preflop] Call (winrate={winrate:.2f}, call_thresh={call_thresh:.2f})")
-                factor = random.uniform(2.7, 3.3)
+                factor = random.uniform(2.5, 3.0)
                 bet_amt = int(call_amt * factor)
                 return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
             else:
@@ -679,8 +679,8 @@ class HybridPlayer(BasePokerPlayer):
                     if win_mc < pot_odds - margin and self._can_fold(round_state):
                         return 'fold', 0
                     # Thin value：0.45–0.55 pot
-                    bet_amt = self._clamp(int(pot_size * random.uniform(0.45,0.55)), min_r, max_r)
-                    return 'raise', bet_amt
+                    bet_amt = int(pot_size * random.uniform(0.45,0.55))
+                    return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
                 # 5) 其他牌
                 if rank <= 1 and call_amt > 0.5 * stack_eff:
@@ -710,21 +710,19 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
                 elif rank in (1, 2):
                     # rank 1, 2 都是弱牌
-                    if self._is_top_pair(hole_card, community) and win_mc > pot_odds + margin:  # 高對
-                        return valid_actions[1]["action"], call_amt  # free check
-
                     if win_mc < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
 
-                    # if rank == 1 and winrate < 0.65 and not self._has_strong_draw(hole_card, community):
+                    if (not self._is_top_pair(hole_card, community) or self._has_strong_draw(hole_card, community)) or spr < 1.5:  # 高對
+                        return valid_actions[1]["action"], call_amt
+
+                    # if winrate < 0.65 and not self._has_strong_draw(hole_card, community):
                     #     return valid_actions[0]["action"], 0
                     
-                    if texture in ('wet', 'semi') and win_mc >= pot_odds + margin + 0.1:
-                        bet_amt = int(pot_size * 0.45)
-                        return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)  # 半閃
-
-                    return valid_actions[1]["action"], call_amt  # call
+                    pct = 0.35
+                    bet_amt = int(pot_size * pct)
+                    return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
                 else: # rank 0
                     flush_d, straight_d, outs = self._detect_draws(hole_card, community)
