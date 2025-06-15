@@ -649,7 +649,7 @@ class HybridPlayer(BasePokerPlayer):
         else: # passive
             if call_amt >= 0.4 * pot_size or call_amt > 0.25 * stack_eff: # heavy bet
                 print(f"[decide_flop] call_amt={call_amt}, heavy bet")
-                
+
                 if spr < 3 and self._has_strong_draw(hole_card, community):
                     print("[Flop] SPR<3 且有强抽 → all in semi bluff")
                     return valid_actions[2]["action"], max_r  # all-in
@@ -815,6 +815,14 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
                 
                 else:
+                    if self._has_strong_draw(hole_card, community):
+
+                        if pot_odds < (outs / 46):
+                            return valid_actions[1]["action"], call_amt  # call
+                            
+                        bet_amt = int(pot_size * 0.5)
+                        return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
+
                     if self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -896,8 +904,8 @@ class HybridPlayer(BasePokerPlayer):
                 return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
             elif rank in (1, 2):
-                if adj_win > 0.75:
-                    bet_amt = int(pot_size * 0.60)
+                if adj_win > 0.78:
+                    bet_amt = int(pot_size * 0.70)
                     print(f"[decide_turn] rank={rank}, adj_win={adj_win:.2f}>0.75, bet_amt={bet_amt}")
                     return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
                 else:
