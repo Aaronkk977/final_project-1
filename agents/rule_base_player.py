@@ -99,7 +99,11 @@ class HybridPlayer(BasePokerPlayer):
         sb       = round_state["small_blind_amount"]
         pos      = self._get_position(round_state)
         my_stack = next(s["stack"] for s in round_state["seats"] if s["uuid"] == self.uuid)
-        remaining_rounds = 20 - round_state["round_count"]
+        current_round = round_state["round_count"]
+        remaining_rounds = 20 - current_round
+
+        if current_round <= 15: # avoid technical fold in first 15 rounds
+            return False
 
         if remaining_rounds % 2 == 0:
             if my_stack - 1000 > remaining_rounds * (sb * 3) * 0.5:
@@ -1078,7 +1082,8 @@ class HybridPlayer(BasePokerPlayer):
             elif rank in (3, 4):
                 danger_flush = self._board_four_flush(community) and not self._has_flush_blocker(hole_card, community)
                 danger_straight = self._board_four_to_straight(community) and not self._has_straight_blocker(hole_card, community)
-                if danger_straight or danger_flush:
+                danger_pairs = ( self._board_pairs(community) > 0 or self._board_trip(community) ) and not self._is_top_pair(hole_card, community)
+                if danger_straight or danger_flush or danger_pairs:
                     return valid_actions[1]["action"], call_amt  # 安全 check 
 
                 if danger > 0:                     # 濕板 → 偏小 block
@@ -1115,7 +1120,13 @@ class HybridPlayer(BasePokerPlayer):
                 print(f"[River] DEBUG bet_amt={bet_amt}")
                 return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
-            # 預設：安全 check
+            # danger = 0
+            if  adj_win >= pot_odds + margin + 0.1:
+                print(f"[River] thin value bet")
+                factor = random.uniform(0.15, 0.20)
+                bet_amt = int(pot_size * factor)
+                return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
+            
             print(f"[River] check for safe")
             return valid_actions[1]["action"], call_amt
 
