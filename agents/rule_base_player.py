@@ -787,7 +787,7 @@ class HybridPlayer(BasePokerPlayer):
                         return valid_actions[1]["action"], call_amt  # call
                 
                 elif rank in (3, 4):
-                    print(f"[decide_turn] texture={texture:.2f} pot_odds={pot_odds:.2f}, adj_win={adj_win:.2f}")
+                    print(f"[decide_turn] texture={texture} pot_odds={pot_odds:.2f}, adj_win={adj_win:.2f}")
                     if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -798,7 +798,7 @@ class HybridPlayer(BasePokerPlayer):
                         return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
                 elif rank in (1, 2):
-                    print(f"[Turn] texture={texture:.2f}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
+                    print(f"[Turn] texture={texture}, adj_win={adj_win:.2f}, pot_odds={pot_odds:.2f}")
                     if adj_win < pot_odds + margin and self._can_fold(round_state):
                         self.raise_fold += 1
                         return valid_actions[0]["action"], 0
@@ -819,7 +819,7 @@ class HybridPlayer(BasePokerPlayer):
 
                         if pot_odds < (outs / 46):
                             return valid_actions[1]["action"], call_amt  # call
-                            
+
                         bet_amt = int(pot_size * 0.5)
                         return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
@@ -923,7 +923,7 @@ class HybridPlayer(BasePokerPlayer):
         rank   = best[0]        # 0: high-card … 8: straight-flush
         win_r, tie_r = self._calc_winrate_river(hole_card, community)
         texture = self._board_texture(community)
-        print(f"[River] win_mc={win_r:.2f}, rank={rank}, tie_r={tie_r:.2f}")
+        print(f"[River] win_mc={win_r:.2f}, rank={rank}")
 
         # 3) 讀池＆計算 Pot Odds
         min_r, max_r   = valid_actions[2]["amount"]["min"], valid_actions[2]["amount"]["max"]
@@ -1033,6 +1033,14 @@ class HybridPlayer(BasePokerPlayer):
                 # ── 3. 弱牌 / 單對以下 ──────────────────────────────
                 elif rank in (1, 2):                           # rank 0-2
                     print(f"[River-LB] rank={rank}, adj={adj_win:.2f}, pot_odds={pot_odds:.2f}")
+                    
+                    if adj_win > 0.5 and pot_odds > 0.2:
+                        # 只要有超過 50% 的勝率，且對手下注不深，就 thin value bet
+                        pct = 0.30
+                        bet_amt = int(pot_size * pct)
+                        print(f"[River-LB] thin value bet {bet_amt}")
+                        return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
+                    
                     if adj_win >= pot_odds + margin and adj_win >= 0.4: # 
                         # +EV 接注 → bluff-catch
                         return valid_actions[1]["action"], call_amt

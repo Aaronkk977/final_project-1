@@ -58,7 +58,7 @@ class BasePokerPlayer(object):
         valid_actions, hole_card, round_state = self.__parse_ask_message(message)
 
         try:
-            with timeout(10):
+            with timeout(50):
                 action, amount = self.declare_action(valid_actions, hole_card, round_state)
         except:
             action, amount = valid_actions[0]["action"], valid_actions[0]["amount"]
