@@ -75,7 +75,7 @@ def main():
     print("\nEvaluation Summary:")
     print(f"{'Opp':<12}{'Win%':>8}{'Draw%':>8}{'MyAvg':>10}{'OppAvg':>10}")
     for r in results:
-        print(f"{r['opponent']:<12}{r['win_rate']:>8.2f}%{r['draw_rate']:>8.2f}%"
+        print(f"{r['opponent']:<13}{r['win_rate']:>8.2f}%{r['draw_rate']:>8.2f}%"
               f"{r['avg_stack']:>10.2f}{r['opponent_avg_stack']:>10.2f}")
     print(f"Overall win rate: {sum(r['win_rate'] for r in results)/len(results):.2f}%")
     print(f"Total time: {time.time()-start_time:.2f}s")

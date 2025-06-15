@@ -420,7 +420,6 @@ class HybridPlayer(BasePokerPlayer):
         print(f"[detect_draws] flush_draw={flush_draw}, straight_draw={straight_draw}, outs={outs}")
         return flush_draw, straight_draw, outs
 
-    
     def _board_texture(self, community):
         suits = [c[0] for c in community]
         ranks = sorted("23456789TJQKA".index(c[1]) for c in community)
@@ -462,7 +461,6 @@ class HybridPlayer(BasePokerPlayer):
         # else:          implied = 0.35
         return implied
 
-    # Support functions
     def _pair_rank(self, hole, board):
         """
         回傳與 Board 配成對子的最大 rank index（0~12）。
@@ -507,15 +505,22 @@ class HybridPlayer(BasePokerPlayer):
         return outs >= 8
 
     def _board_four_to_straight(self, board):
-        """Flop/Turn/River 是否有四張連號（含輪子 A-2-3-4)"""
-        vals = sorted(set(self._rank_order.index(c[1]) for c in board))
-        # 把 A=12 再映射成 -1，方便偵測 A-2-3-4
-        if 12 in vals:
-            vals.append(-1)
-            vals.sort()                       # ← 重新排序，才不會打亂遞增序列
-        # 任意連續 4 張（不重複）且跨度 = 3
-        return any(vals[i+3] - vals[i] == 3 for i in range(len(vals) - 3))
+        """Flop/Turn/River 是否有四張連號 draw（包括 open‐ended 與 gutshot）"""
+        # 用 bitmask 表示各點數在 board 上是否出現
+        bitmask = 0
+        for c in board:
+            idx = self._rank_order.index(c[1:])
+            bitmask |= (1 << idx)
+        # Ace 作為 1
+        if bitmask & (1 << 12):
+            bitmask |= 1  # 把 bit 0 (rank '2') 也標成已出現，等於 A-2-3-4
 
+        # 掃所有可能的 5 張連號區間
+        for low in range(0, 9):  # 0..8 共 9 種 5 張組合
+            mask5 = ((1 << 5) - 1) << low
+            if bin(bitmask & mask5).count("1") == 4:
+                return True
+        return False
 
     def _board_four_flush(self, board):
         suits = [c[0] for c in board]
@@ -620,10 +625,10 @@ class HybridPlayer(BasePokerPlayer):
 
             # 4) 強抽但尚未成手 (rank < 2)             －－半閃
             elif rank < 2 and self._has_strong_draw(hole_card, community) and win_mc >= pot_odds + margin:
-                if spr > 10 and win_mc < 0.55:
+                if spr > 12 and win_mc < 0.6:
                     # SPR 太高、勝率不夠高 → 不下注
-                    return valid_actions[1]["action"], 0
-                pct      = 0.70 if texture == 'wet' else 0.60
+                    return valid_actions[1]["action"], call_amt
+                pct      = 0.55 if texture == 'wet' else 0.75
                 bet_amt  = int(pot_size * pct)
                 return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
@@ -644,6 +649,11 @@ class HybridPlayer(BasePokerPlayer):
         else: # passive
             if call_amt >= 0.4 * pot_size or call_amt > 0.25 * stack_eff: # heavy bet
                 print(f"[decide_flop] call_amt={call_amt}, heavy bet")
+                
+                if spr < 3 and self._has_strong_draw(hole_card, community):
+                    print("[Flop] SPR<3 且有强抽 → all in semi bluff")
+                    return valid_actions[2]["action"], max_r  # all-in
+
                 if rank == 8: # shove
                     bet_amt = max_r
                     return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
@@ -1121,7 +1131,7 @@ class HybridPlayer(BasePokerPlayer):
                 return self._safe_raise(valid_actions, bet_amt, fallback_amt=call_amt)
 
             # danger = 0
-            if  adj_win >= pot_odds + margin + 0.1:
+            if  adj_win >= pot_odds + margin + 0.1 and adj_win >= 0.8:
                 print(f"[River] thin value bet")
                 factor = random.uniform(0.15, 0.20)
                 bet_amt = int(pot_size * factor)
